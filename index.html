@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatientShield - Medical Bill Advocacy and Audit Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <span class="text-xl font-bold text-blue-600">PatientShield</span>
+            </div>
+            <div>
+                <a href="#audit-form" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition">Free Bill Review</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            
+            <!-- Left Column: Copy & Guarantee -->
+            <div>
+                <p class="text-sm font-semibold text-blue-600 tracking-wide uppercase mb-2">Zero Upfront Costs • Performance-Based Advocacy</p>
+                <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-gray-900 mb-6">
+                    Fighting Inflated Hospital Bills <span class="text-blue-600">For You.</span>
+                </h1>
+                <p class="text-lg text-gray-600 mb-8">
+                    Over 80% of hospital bills contain severe errors, double charges, and inflated markups. We audit your records, challenge hospital billing departments, and only get paid if we successfully lower your balance.
+                </p>
+
+                <!-- Guarantee Card -->
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-8">
+                    <h3 class="text-lg font-bold text-gray-900 mb-3">The PatientShield Guarantee</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><strong>$0 Out-of-Pocket:</strong> You pay nothing unless we secure hard-dollar savings or cash refunds.</li>
+                        <li><strong>Clinical Nurse Audit:</strong> Professional review cross-referencing medical charts against itemized codes.</li>
+                        <li><strong>Total Asset Protection:</strong> We handle the hospital negotiations so collection calls stop.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Right Column: Form Section -->
+            <div id="audit-form" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Submit Your Bill for Audit</h2>
+                
+                <form action="https://formspree.io/f/xaqrprdd" method="POST" enctype="multipart/form-data" class="space-y-5">
+                    <div>
+                        <label for="fullName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input type="text" id="fullName" name="fullName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="John Doe">
+                    </div>
+
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" id="email" name="email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="john@example.com">
+                    </div>
+
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="(555) 000-0000">
+                    </div>
+
+                    <div>
+                        <label for="hospital" class="block text-sm font-medium text-gray-700">Hospital / Provider Name</label>
+                        <input type="text" id="hospital" name="hospital" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="City General Hospital">
+                    </div>
+
+                    <div>
+                        <label for="billUpload" class="block text-sm font-medium text-gray-700">Upload Itemized Bill (PDF or Image)</label>
+                        <input type="file" id="billUpload" name="upload" accept=".pdf,image/*" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+
+                    <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-blue-700 transition duration-200 shadow-md">
+                        Submit Bill for Audit
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12 py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-500">
+            &copy; 2026 PatientShield. HIPAA-Compliant & Secure Data Handling.
+        </div>
+    </footer>
+
+</body>
+</html>

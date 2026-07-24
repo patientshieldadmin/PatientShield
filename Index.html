@@ -1,0 +1,120 @@
+Here is the complete source code for your index.html file. Copy this exact text, save it into a file named index.html, and upload it to your GitHub repository:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatientShield | Medical Bill Advocacy & Dispute Resolution</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl font-extrabold text-blue-600 tracking-tight">Patient<span class="text-slate-800">Shield</span></span>
+            </div>
+            <a href="#audit-form" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg shadow-sm transition">
+                Free Bill Review
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="max-w-7xl mx-auto px-6 py-20 lg:py-28 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div>
+            <div class="inline-block bg-blue-50 text-blue-700 font-semibold text-sm px-3 py-1 rounded-full mb-6">
+                Zero Upfront Costs • Performance-Based Advocacy
+            </div>
+            <h1 class="text-4xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-tight mb-6">
+                Fighting Inflated Hospital Bills <span class="text-blue-600">For You.</span>
+            </h1>
+            <p class="text-lg text-slate-600 mb-8 leading-relaxed">
+                Over 80% of hospital bills contain severe errors, double charges, and inflated markups. We audit your records, challenge hospital billing departments, and only get paid if we successfully lower your balance.
+            </p>
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <a href="#audit-form" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-center px-8 py-4 rounded-xl shadow-md transition">
+                    Submit Bill for Audit
+                </a>
+                <div class="flex items-center px-4 py-2 text-sm text-slate-500 font-medium">
+                    🔒 HIPAA-Compliant & Secure Data Handling
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trust & Stats Card -->
+        <div class="bg-white p-8 rounded-2xl border border-slate-200 shadow-xl">
+            <h3 class="text-xl font-bold text-slate-900 mb-4">The PatientShield Guarantee</h3>
+            <ul class="space-y-4 text-slate-600">
+                <li class="flex items-start">
+                    <span class="text-blue-600 font-bold mr-3">✓</span>
+                    <span><strong>$0 Out-of-Pocket:</strong> You pay nothing unless we secure hard-dollar savings or cash refunds.</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-600 font-bold mr-3">✓</span>
+                    <span><strong>Clinical Nurse Audit:</strong> Professional review cross-referencing medical charts against itemized codes.</span>
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-600 font-bold mr-3">✓</span>
+                    <span><strong>Total Asset Protection:</strong> We handle the hospital negotiations so collection calls stop.</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Client Intake & Document Upload Section -->
+    <section id="audit-form" class="bg-slate-100 py-20 border-t border-slate-200">
+        <div class="max-w-3xl mx-auto px-6 bg-white p-8 lg:p-12 rounded-2xl shadow-lg border border-slate-200">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-slate-900 mb-3">Request Your Free Bill Audit</h2>
+                <p class="text-slate-600">Upload your itemized hospital statement below. We will review it for hidden overcharges immediately.</p>
+            </div>
+
+            <form class="space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
+                        <input type="text" required class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Jane Doe">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Phone Number</label>
+                        <input type="tel" required class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="(555) 000-0000">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Email Address</label>
+                    <input type="email" required class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="jane@example.com">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Approximate Hospital Bill Amount ($)</label>
+                    <input type="text" required class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="e.g. $150,000 (NICU / Surgery / ER)">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Upload Itemized Medical Bill (PDF or Image)</label>
+                    <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition cursor-pointer">
+                        <input type="file" class="hidden" id="file-upload">
+                        <label for="file-upload" class="cursor-pointer">
+                            <span class="text-blue-600 font-semibold">Click to upload</span> or drag and drop your PDF statements here
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3 pt-2">
+                    <input type="checkbox" required class="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                    <span class="text-xs text-slate-500">I authorize PatientShield to review my submitted medical billing documents for auditing and agree to the 30% contingency terms upon successful savings recovery.</span>
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md transition text-lg">
+        h            Submit For Secure Audit
+                </button>
+            </form>
+        </div>
+    </section>
+
+</body>
+</html>
+

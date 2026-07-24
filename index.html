@@ -98,6 +98,7 @@
         </div>
     </footer>
 
+    <!-- Enhanced Debug Script Handler -->
     <script>
     document.getElementById('auditForm').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -114,7 +115,15 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-            const result = await response.json();
+            
+            const responseText = await response.text();
+            let result;
+            try {
+                result = JSON.parse(responseText);
+            } catch (parseErr) {
+                throw new Error('Server response: ' + responseText.substring(0, 100));
+            }
+
             if (response.ok) {
                 alert('Request submitted successfully! We will contact you shortly.');
                 document.getElementById('auditForm').reset();
@@ -122,7 +131,7 @@
                 alert('Error: ' + (result.error || 'Submission failed'));
             }
         } catch (err) {
-            alert('An unexpected error occurred.');
+            alert('Debug Error: ' + err.message);
         }
     });
     </script>

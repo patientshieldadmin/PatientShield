@@ -47,9 +47,10 @@
 
             <!-- Right Column: Form Section -->
             <div id="audit-form" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
-                <h2 class="text-2xl font-bold text-gray-900 mb-6">Submit Your Bill for Audit</h2>
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Request a Case Review</h2>
                 
-                <form action="https://formspree.io/f/xaqrprdd" method="POST" enctype="multipart/form-data" class="space-y-5">
+                <!-- Updated with your endpoint. File uploads and PHI fields removed for HIPAA compliance. -->
+                <form action="https://formspree.io/f/xaqrprdd" method="POST" class="space-y-5">
                     <div>
                         <label for="fullName" class="block text-sm font-medium text-gray-700">Full Name</label>
                         <input type="text" id="fullName" name="fullName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="John Doe">
@@ -66,17 +67,24 @@
                     </div>
 
                     <div>
-                        <label for="hospital" class="block text-sm font-medium text-gray-700">Hospital / Provider Name</label>
-                        <input type="text" id="hospital" name="hospital" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="City General Hospital">
+                        <label for="caseType" class="block text-sm font-medium text-gray-700">Case Type</label>
+                        <select id="caseType" name="caseType" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm bg-white">
+                            <option value="">Select Category...</option>
+                            <option value="NICU Inpatient Bill">NICU Inpatient Bill</option>
+                            <option value="Complex Multi-Account Hospital Bill">Complex Multi-Account Hospital Bill</option>
+                            <option value="Other Catastrophic Bill">Other Catastrophic Bill</option>
+                        </select>
                     </div>
 
-                    <div>
-                        <label for="billUpload" class="block text-sm font-medium text-gray-700">Upload Itemized Bill (PDF or Image)</label>
-                        <input type="file" id="billUpload" name="upload" accept=".pdf,image/*" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <!-- Mandatory Compliance Notice -->
+                    <div class="bg-red-50 border border-red-200 p-3 rounded-md">
+                        <p class="text-xs text-red-700">
+                            <strong>Notice:</strong> Do not upload medical bills, records, or personal health information (PHI) here. This form is for initial contact only. Secure document transmission will occur via our encrypted portal after review.
+                        </p>
                     </div>
 
                     <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-blue-700 transition duration-200 shadow-md">
-                        Submit Bill for Audit
+                        Submit Request
                     </button>
                 </form>
             </div>
@@ -87,7 +95,7 @@
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 mt-12 py-6">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-500">
-            &copy; 2026 PatientShield. HIPAA-Compliant & Secure Data Handling.
+            &copy; 2026 PatientShield. Secure Data Handling.
         </div>
     </footer>
 

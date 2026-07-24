@@ -49,7 +49,8 @@
             <div id="audit-form" class="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
                 <h2 class="text-2xl font-bold text-gray-900 mb-6">Request a Case Review</h2>
                 
-                <form id="auditForm" class="space-y-5">
+                <!-- Native Formspree Action Routing -->
+                <form action="https://formspree.io/f/xaqrprdd" method="POST" class="space-y-5">
                     <div>
                         <label for="fullName" class="block text-sm font-medium text-gray-700">Full Name</label>
                         <input type="text" id="fullName" name="fullName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 border p-2.5 text-sm" placeholder="John Doe">
@@ -97,44 +98,6 @@
             &copy; 2026 PatientShield. HIPAA-Compliant & Secure Data Handling.
         </div>
     </footer>
-
-    <!-- Form Handler Script -->
-    <script>
-    document.getElementById('auditForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const formData = {
-            fullName: document.getElementById('fullName').value,
-            email: document.getElementById('email').value,
-            phone: document.getElementById('phone').value,
-            caseType: document.getElementById('caseType').value
-        };
-
-        try {
-            const response = await fetch('/api/submit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-            
-            const responseText = await response.text();
-            let result;
-            try {
-                result = JSON.parse(responseText);
-            } catch (parseErr) {
-                throw new Error('Server response: ' + responseText.substring(0, 100));
-            }
-
-            if (response.ok) {
-                alert('Request submitted successfully! We will contact you shortly.');
-                document.getElementById('auditForm').reset();
-            } else {
-                alert('Error: ' + (result.error || 'Submission failed'));
-            }
-        } catch (err) {
-            alert('Debug Error: ' + err.message);
-        }
-    });
-    </script>
 
 </body>
 </html>

@@ -25,7 +25,6 @@ export default async function handler(req, res) {
       recommendedAction: 'Ready for Clinical Nurse Review and Dispute Letter Generation',
     };
 
-    // Send email directly via Resend HTTP API (No npm package required)
     try {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -34,8 +33,8 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from: 'PatientShield <onboarding@resend.dev>',
-          to: ['Admin@thepatientshield.com'],
+          from: 'PatientShield <audit@thepatientshield.com>',
+          to: ['Admin@thepatientshield.com', email],
           subject: `New Bill Review Intake: ${fullName}`,
           html: `
             <h2>New Audit Pipeline Initiated</h2>

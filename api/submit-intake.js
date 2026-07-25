@@ -7,104 +7,100 @@ export default async function handler(req, res) {
     const body = req.body || {};
     const fullName = body.fullName || 'Valued Client';
     const clientEmail = body.email || 'client@thepatientshield.com';
-    const hospitalName = body.hospitalName || '';
-    const billAmount = body.billAmount || '';
-    const phoneNumber = body.phoneNumber || 'Unspecified';
+    const hospitalName = body.hospitalName || 'Target Hospital';
+    const billText = body.billText || body.extractedText || body.documentText || '';
 
-    // Robust check for uploaded file/document from the frontend
-    const hasItemizedBill = Boolean(
-      body.fileName || 
-      body.itemizedBill || 
-      body.document || 
-      body.hasItemizedBill === true || 
-      body.hasItemizedBill === 'true'
-    );
-
-    // --- AI COMPLETENESS CHECK ---
-    const missingItems = [];
-    if (!billAmount || billAmount === 'Unspecified') {
-      missingItems.push('Total Bill Amount');
-    }
-    if (!hospitalName || hospitalName === 'Target Hospital') {
-      missingItems.push('Hospital or Facility Name');
-    }
-    if (!hasItemizedBill) {
-      missingItems.push('Itemized Hospital Bill Document / PDF');
+    // Verify OpenAI API key exists for deep document analysis
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY is missing in environment variables.');
+      return res.status(500).json({ error: 'Server configuration error: Missing OpenAI key.' });
     }
 
-    const isComplete = missingItems.length === 0;
+    // --- STEP 1: AI FORENSIC DOCUMENT ANALYSIS & EXTRACTION ---
+    const aiPrompt = `
+      You are an expert medical billing forensic auditor for high-acuity claims (such as NICU and catastrophic inpatient stays). 
+      Analyze the following document text uploaded by client "${fullName}" for facility "${hospitalName}".
+      
+      Document Text:
+      """
+      ${billText || 'No text provided'}
+      """
 
-    let emailSubject, emailHtml, auditReport;
+      Perform a rigorous forensic check and return a strict JSON object with these exact keys:
+      1. "isLegitMedicalBill": boolean (true if it's a valid hospital itemized bill/statement/EOB, false otherwise).
+      2. "isRelevant": boolean (true if related to medical bills, false if random text/resume/unrelated).
+      3. "extractedTotalAmount": number or null (the true total billed amount extracted directly from the document text).
+      4. "missingItems": array of strings (list missing supporting clinical records required for deep forensic auditing, e.g. "Detailed MAR Records", "Nursing Vital Sign Logs", "Physician Progress Notes").
+      5. "auditSummary": string (brief summary of line-item review findings based on the text).
+    `;
 
-    if (!isComplete) {
-      // --- MISSING INFO: DIRECT CLIENT BACK TO SECURE SITE ---
-      auditReport = {
-        analyzedAt: new Date().toISOString(),
-        status: 'Incomplete - Missing Required Information',
-        client: fullName,
-        missingDocuments: missingItems,
-        actionRequired: 'Client notified to re-upload via secure portal.'
-      };
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: aiPrompt }],
+        response_format: { type: 'json_object' }
+      }),
+    });
 
-      emailSubject = `Action Required: Additional Information Needed for Your Bill Review (${fullName})`;
+    const aiData = await aiResponse.json();
+    if (!aiResponse.ok) {
+      console.error('OpenAI API Error:', aiData);
+      throw new Error('AI document analysis failed.');
+    }
+
+    const analysis = JSON.parse(aiData.choices[0].message.content);
+    const extractedAmount = analysis.extractedTotalAmount || body.billAmount || 0;
+
+    let emailSubject, emailHtml;
+
+    // --- STEP 2: DYNAMIC EMAIL GENERATION BASED ON AI ANALYSIS ---
+    if (!analysis.isRelevant || !analysis.isLegitMedicalBill) {
+      emailSubject = `Action Required: Invalid Document Uploaded for PatientShield Review`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-          <h2 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 8px;">Additional Information Needed</h2>
+          <h2 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 8px;">Document Verification Failed</h2>
           <p>Hello <strong>${fullName}</strong>,</p>
-          <p>We received your intake form for PatientShield, but our automated review detected that some required information or documents are missing before we can complete your forensic audit.</p>
-          
-          <h3 style="color: #333; margin-top: 20px;">Missing Items Detected:</h3>
-          <ul style="background: #fff3f3; padding: 15px; border-radius: 5px; border-left: 4px solid #d9534f; list-style-type: none;">
-            ${missingItems.map(item => `<li style="padding: 5px 0;">❌ <strong>${item}</strong></li>`).join('')}
-          </ul>
-
-          <p><strong>For your security and HIPAA compliance, please do not email documents.</strong> Please return to our secure website and re-upload your itemized bill through the intake portal.</p>
+          <p>Our AI document inspector reviewed your upload but could not verify it as a legitimate itemized hospital bill or statement.</p>
+          <p><strong>For HIPAA compliance and security, please re-upload a valid itemized hospital billing PDF through our secure portal.</strong></p>
           <p><em>Thank you,</em><br/><strong>PatientShield Advocacy Team</strong></p>
         </div>
       `;
-    } else {
-      // --- COMPLETE: PROCEED WITH AUDIT ---
-      auditReport = {
-        analyzedAt: new Date().toISOString(),
-        status: 'AI Pre-Audit Complete',
-        client: fullName,
-        hospital: hospitalName,
-        totalBill: billAmount,
-        flaggedDiscrepancies: [
-          { category: 'Level of Care', description: 'Cross-checking per diem codes against nursing vital sign logs.' },
-          { category: 'Pharmacy Reconciliation', description: 'Validating continuous infusion timestamps against MAR records.' },
-          { category: 'Unbundled Labs', description: 'Screening for separated panel components.' }
-        ],
-        recommendedAction: 'Ready for Clinical Nurse Review and Dispute Letter Generation',
-      };
-
-      emailSubject = `New Bill Review Intake: ${fullName}`;
+    } else if (analysis.missingItems && analysis.missingItems.length > 0) {
+      emailSubject = `Action Required: Additional Records Needed for ${fullName}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-          <h2 style="color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 8px;">Audit Pipeline Initiated</h2>
+          <h2 style="color: #f0ad4e; border-bottom: 2px solid #f0ad4e; padding-bottom: 8px;">Additional Clinical Records Required</h2>
           <p>Hello <strong>${fullName}</strong>,</p>
-          <p>Your medical bill intake for <strong>${hospitalName}</strong> has been successfully received, verified complete, and processed through our automated AI forensic pre-audit pipeline.</p>
-          
-          <h3 style="color: #333; margin-top: 20px;">Intake Overview</h3>
-          <ul style="line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; list-style-type: none;">
-            <li><strong>Client Name:</strong> ${fullName}</li>
-            <li><strong>Hospital:</strong> ${hospitalName}</li>
-            <li><strong>Total Bill Amount:</strong> $${Number(billAmount).toLocaleString()}</li>
-            <li><strong>Status:</strong> All required documents verified securely.</li>
+          <p>We successfully verified your itemized bill totaling <strong>$${Number(extractedAmount).toLocaleString()}</strong>. However, our AI audit engine detected that additional medical records are needed to perform a complete forensic comparison:</p>
+          <ul style="background: #fdf8e4; padding: 15px; border-radius: 5px; list-style-type: none;">
+            ${analysis.missingItems.map(item => `<li style="padding: 5px 0;">⚠️ <strong>${item}</strong></li>`).join('')}
           </ul>
-
-          <h3 style="color: #333; margin-top: 20px;">AI Preliminary Findings</h3>
-          <div style="background: #f1f5f9; padding: 15px; border-radius: 5px;">
-            <ul style="margin: 0; padding-left: 20px; line-height: 1.5;">
-              ${auditReport.flaggedDiscrepancies.map(d => `<li><strong>${d.category}:</strong> ${d.description}</li>`).join('')}
-            </ul>
-          </div>
-
-          <p style="margin-top: 20px;"><strong>Next Steps:</strong> ${auditReport.recommendedAction}</p>
+          <p>Please log back into our secure portal to upload the remaining requested files.</p>
+        </div>
+      `;
+    } else {
+      emailSubject = `Verified High-Acuity Bill Review Intake: ${fullName}`;
+      emailHtml = `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+          <h2 style="color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 8px;">Forensic Audit Pipeline Fully Initiated</h2>
+          <p>Hello <strong>${fullName}</strong>,</p>
+          <p>Your itemized bill for <strong>${hospitalName}</strong> has been successfully read, authenticated, and verified complete by our AI audit engine.</p>
+          <ul style="line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; list-style-type: none;">
+            <li><strong>Verified Total Billed:</strong> $${Number(extractedAmount).toLocaleString()}</li>
+            <li><strong>Document Status:</strong> Legitimate & Relevant Itemized Bill Verified</li>
+            <li><strong>Preliminary Audit Findings:</strong> ${analysis.auditSummary}</li>
+          </ul>
+          <p><strong>Next Steps:</strong> Queued for clinical nurse review and dispute letter generation.</p>
         </div>
       `;
     }
 
+    // --- STEP 3: DISPATCH NOTIFICATION VIA RESEND ---
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -126,16 +122,13 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       status: 'success',
-      complete: isComplete,
-      missingItems: missingItems,
-      message: isComplete ? 'Intake complete. AI audit initiated.' : 'Intake received, missing items notification sent.',
-      data: auditReport,
+      analysis: analysis,
     });
   } catch (error) {
     console.error('Pipeline Execution Error:', error);
     return res.status(500).json({
       status: 'error',
-      message: 'Internal server error during intake processing.',
+      message: 'Internal server error during AI document parsing.',
     });
   }
 }

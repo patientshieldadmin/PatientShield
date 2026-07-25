@@ -2,14 +2,6 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -37,23 +29,26 @@ export default async function handler(req, res) {
       recommendedAction: 'Ready for Clinical Nurse Review and Dispute Letter Generation',
     };
 
-    const emailResponse = await resend.emails.send({
-      from: 'PatientShield <onboarding@resend.dev>',
-      to: ['Admin@thepatientshield.com', email],
-      subject: `New Bill Review Intake: ${fullName}`,
-      html: `
-        <h2>New Audit Pipeline Initiated</h2>
-        <p><strong>Client:</strong> ${fullName}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phoneNumber}</p>
-        <p><strong>Hospital:</strong> ${hospitalName}</p>
-        <p><strong>Total Bill Amount:</strong> ${billAmount}</p>
-        <h3>AI Audit Report Summary</h3>
-        <pre>${JSON.stringify(aiAuditReport, null, 2)}</pre>
-      `,
-    });
-
-    console.log("Automated AI Pipeline Dispatched Successfully:", emailResponse);
+    // Safely attempt to send the email without blocking form submission if it fails
+    try {
+      await resend.emails.send({
+        from: 'PatientShield <onboarding@resend.dev>',
+        to: ['Admin@thepatientshield.com'], 
+        subject: `New Bill Review Intake: ${fullName}`,
+        html: `
+          <h2>New Audit Pipeline Initiated</h2>
+          <p><strong>Client:</strong> ${fullName}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Phone:</strong> ${phoneNumber}</p>
+          <p><strong>Hospital:</strong> ${hospitalName}</p>
+          <p><strong>Total Bill Amount:</strong> ${billAmount}</p>
+          <h3>AI Audit Report Summary</h3>
+          <pre>${JSON.stringify(aiAuditReport, null, 2)}</pre>
+        `,
+      });
+    } catch (emailError) {
+      console.error('Resend Email Error (Handled):', emailError);
+    }
 
     return res.status(200).json({
       status: 'success',

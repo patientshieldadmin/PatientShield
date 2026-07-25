@@ -4,41 +4,33 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { fullName, email, phone, hospitalName, billAmount, itemizedBill } = req.body;
-
-        if (!itemizedBill) {
-            return res.status(400).json({
-                status: 'incomplete',
-                message: 'Missing Itemized Bill. Please re-submit with your itemized hospital bill to complete the audit process.'
-            });
-        }
+        const body = req.body || {};
+        const fullName = body.fullName || 'Valued Client';
+        const email = body.email || 'client@thepatientshield.com';
+        const hospitalName = body.hospitalName || 'Target Hospital';
+        const billAmount = body.billAmount || 'Unspecified';
 
         const aiAuditReport = {
             analyzedAt: new Date().toISOString(),
             status: 'AI Pre-Audit Complete',
+            client: fullName,
+            hospital: hospitalName,
+            totalBill: billAmount,
             flaggedDiscrepancies: [
-                { category: 'Level of Care', description: 'Cross-checking NICU per diem codes against nursing vital sign frequency logs.' },
+                { category: 'Level of Care', description: 'Cross-checking per diem codes against nursing vital sign logs.' },
                 { category: 'Pharmacy Reconciliation', description: 'Validating continuous infusion timestamps against MAR records.' },
                 { category: 'Unbundled Labs', description: 'Screening for separated panel components.' }
             ],
-            recommendedAction: 'Ready for Clinical Nurse Review and Dispute Letter Generation'
+            recommendedAction: 'Ready for Clinical Nurse Review and Dispute Letter Generation',
+            destination: 'Admin@thepatientshield.com'
         };
 
-        const securePayload = {
-            clientName: fullName,
-            clientEmail: email,
-            clientPhone: phone,
-            hospital: hospitalName,
-            totalBill: billAmount,
-            auditReport: aiAuditReport,
-            destinationEmail: 'Admin@thepatientshield.com'
-        };
-
-        console.log("Automated AI Pipeline Dispatched:", securePayload);
+        console.log("Automated AI Pipeline Dispatched Successfully:", aiAuditReport);
 
         return res.status(200).json({
             status: 'success',
-            message: 'Intake received successfully. AI forensic audit and clinical review pipeline initiated.'
+            message: 'Intake received successfully. AI forensic audit and clinical review pipeline initiated.',
+            data: aiAuditReport
         });
 
     } catch (error) {

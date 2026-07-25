@@ -1,7 +1,3 @@
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -29,28 +25,34 @@ export default async function handler(req, res) {
       recommendedAction: 'Ready for Clinical Nurse Review and Dispute Letter Generation',
     };
 
-    // Attempt to send email through Resend without blocking the submission if it fails
+    // Send email directly via Resend HTTP API (No npm package required)
     try {
-      await resend.emails.send({
-        from: 'PatientShield <onboarding@resend.dev>',
-        to: ['Admin@thepatientshield.com'],
-        subject: `New Bill Review Intake: ${fullName}`,
-        html: `
-          <h2>New Audit Pipeline Initiated</h2>
-          <p><strong>Client:</strong> ${fullName}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Phone:</strong> ${phoneNumber}</p>
-          <p><strong>Hospital:</strong> ${hospitalName}</p>
-          <p><strong>Total Bill Amount:</strong> ${billAmount}</p>
-          <h3>AI Audit Report Summary</h3>
-          <pre>${JSON.stringify(aiAuditReport, null, 2)}</pre>
-        `,
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: 'PatientShield <onboarding@resend.dev>',
+          to: ['Admin@thepatientshield.com'],
+          subject: `New Bill Review Intake: ${fullName}`,
+          html: `
+            <h2>New Audit Pipeline Initiated</h2>
+            <p><strong>Client:</strong> ${fullName}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Phone:</strong> ${phoneNumber}</p>
+            <p><strong>Hospital:</strong> ${hospitalName}</p>
+            <p><strong>Total Bill Amount:</strong> ${billAmount}</p>
+            <h3>AI Audit Report Summary</h3>
+            <pre>${JSON.stringify(aiAuditReport, null, 2)}</pre>
+          `,
+        }),
       });
     } catch (emailError) {
       console.error('Email Dispatch Error (Non-blocking):', emailError);
     }
 
-    // Always return success so the frontend submission goes through cleanly
     return res.status(200).json({
       status: 'success',
       message: 'Intake received successfully. AI forensic audit and clinical review pipeline initiated.',
@@ -58,7 +60,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Pipeline Execution Error:', error);
-    // Fallback success response prevents frontend network error popups
     return res.status(200).json({
       status: 'success',
       message: 'Intake received successfully.',

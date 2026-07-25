@@ -10,7 +10,15 @@ export default async function handler(req, res) {
     const hospitalName = body.hospitalName || '';
     const billAmount = body.billAmount || '';
     const phoneNumber = body.phoneNumber || 'Unspecified';
-    const hasItemizedBill = body.hasItemizedBill === true || body.hasItemizedBill === 'true' || body.documentAttached === true;
+
+    // Robust check for uploaded file/document from the frontend
+    const hasItemizedBill = Boolean(
+      body.fileName || 
+      body.itemizedBill || 
+      body.document || 
+      body.hasItemizedBill === true || 
+      body.hasItemizedBill === 'true'
+    );
 
     // --- AI COMPLETENESS CHECK ---
     const missingItems = [];
@@ -29,13 +37,13 @@ export default async function handler(req, res) {
     let emailSubject, emailHtml, auditReport;
 
     if (!isComplete) {
-      // --- SCENARIO A: DOCUMENTS/INFO ARE MISSING ---
+      // --- MISSING INFO: DIRECT CLIENT BACK TO SECURE SITE ---
       auditReport = {
         analyzedAt: new Date().toISOString(),
         status: 'Incomplete - Missing Required Information',
         client: fullName,
         missingDocuments: missingItems,
-        actionRequired: 'Client emailed to request missing documentation.'
+        actionRequired: 'Client notified to re-upload via secure portal.'
       };
 
       emailSubject = `Action Required: Additional Information Needed for Your Bill Review (${fullName})`;
@@ -43,19 +51,19 @@ export default async function handler(req, res) {
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
           <h2 style="color: #d9534f; border-bottom: 2px solid #d9534f; padding-bottom: 8px;">Additional Information Needed</h2>
           <p>Hello <strong>${fullName}</strong>,</p>
-          <p>We received your intake form for PatientShield, but our AI preliminary review detected that some required information or documents are missing before we can complete your forensic audit.</p>
+          <p>We received your intake form for PatientShield, but our automated review detected that some required information or documents are missing before we can complete your forensic audit.</p>
           
           <h3 style="color: #333; margin-top: 20px;">Missing Items Detected:</h3>
           <ul style="background: #fff3f3; padding: 15px; border-radius: 5px; border-left: 4px solid #d9534f; list-style-type: none;">
             ${missingItems.map(item => `<li style="padding: 5px 0;">❌ <strong>${item}</strong></li>`).join('')}
           </ul>
 
-          <p>Please reply directly to this email with the requested documents or information so our clinical team and AI audit pipeline can proceed.</p>
+          <p><strong>For your security and HIPAA compliance, please do not email documents.</strong> Please return to our secure website and re-upload your itemized bill through the intake portal.</p>
           <p><em>Thank you,</em><br/><strong>PatientShield Advocacy Team</strong></p>
         </div>
       `;
     } else {
-      // --- SCENARIO B: EVERYTHING IS COMPLETE ---
+      // --- COMPLETE: PROCEED WITH AUDIT ---
       auditReport = {
         analyzedAt: new Date().toISOString(),
         status: 'AI Pre-Audit Complete',
@@ -82,7 +90,7 @@ export default async function handler(req, res) {
             <li><strong>Client Name:</strong> ${fullName}</li>
             <li><strong>Hospital:</strong> ${hospitalName}</li>
             <li><strong>Total Bill Amount:</strong> $${Number(billAmount).toLocaleString()}</li>
-            <li><strong>Status:</strong> All required documents verified. No missing items.</li>
+            <li><strong>Status:</strong> All required documents verified securely.</li>
           </ul>
 
           <h3 style="color: #333; margin-top: 20px;">AI Preliminary Findings</h3>
@@ -97,7 +105,6 @@ export default async function handler(req, res) {
       `;
     }
 
-    // Send the email to Admin and Client
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -121,7 +128,7 @@ export default async function handler(req, res) {
       status: 'success',
       complete: isComplete,
       missingItems: missingItems,
-      message: isComplete ? 'Intake complete. AI audit initiated.' : 'Intake received, but missing required items. Notification sent to client.',
+      message: isComplete ? 'Intake complete. AI audit initiated.' : 'Intake received, missing items notification sent.',
       data: auditReport,
     });
   } catch (error) {

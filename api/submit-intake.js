@@ -13,17 +13,18 @@ export default async function handler(req, res) {
     const rawBillAmount = body.billAmount || '0';
     const phone = body.phone || 'Unspecified';
     const fileName = body.fileName || 'Itemized Bill Uploaded';
+    const eobName = body.eobName || 'Not Provided';
+    const recordsName = body.recordsName || 'Not Provided';
 
-    // Sanitize bill amount (strip out $, commas, spaces) to ensure clean math and formatting
     const numericBill = Number(String(rawBillAmount).replace(/[^0-9.]/g, '')) || 0;
     const formattedBillAmount = numericBill > 0 ? numericBill.toLocaleString() : rawBillAmount;
 
     let analysisFindings = [
       { category: 'Initial Line-Item Ingestion', description: `Successfully received Itemized Bill (${fileName}) for ${hospitalName} totaling $${formattedBillAmount}. Queued for clinical chargemaster benchmark comparison.` }
     ];
-    let estimatedSavingsValue = 'Estimated 35% - 55% Reduction Range based on High-Acuity Chargemaster Benchmarks';
+    let estimatedSavingsValue = 'Estimated 35% - 55% Reduction Range';
+    let disputeLetterDraft = 'Formal dispute letter generation pending complete documentation review.';
 
-    // Execute OpenAI forensic analysis using exact user intake values
     if (process.env.OPENAI_API_KEY) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -37,11 +38,11 @@ export default async function handler(req, res) {
             messages: [
               {
                 role: 'system',
-                content: 'You are an elite medical bill forensic auditor specializing in high-acuity inpatient and NICU stays. Analyze the provided intake details (Hospital Name, Total Bill Amount, and File Name) to generate realistic preliminary audit findings for this specific account. Return a JSON object strictly with: { "findings": [{ "category": string, "description": string }], "estimatedSavings": string }'
+                content: 'You are an elite medical bill forensic auditor and nurse advocate specializing in high-acuity inpatient and NICU stays. Analyze the intake details to generate forensic audit findings, estimated savings, and a formal Hospital Billing Dispute & Appeal Letter citing chargemaster markups and unbundling rules. Return a JSON object strictly with: { "findings": [{ "category": string, "description": string }], "estimatedSavings": string, "disputeLetter": string }'
               },
               {
                 role: 'user',
-                content: `Hospital: ${hospitalName}\nTotal Bill Amount: $${formattedBillAmount}\nUploaded Itemized Bill: ${fileName}`
+                content: `Hospital: ${hospitalName}\nTotal Bill Amount: $${formattedBillAmount}\nItemized Bill: ${fileName}\nEOB: ${eobName}\nMedical Records: ${recordsName}`
               }
             ],
             response_format: { type: 'json_object' }
@@ -52,12 +53,9 @@ export default async function handler(req, res) {
           const openaiData = await openaiResponse.json();
           if (openaiData.choices?.[0]?.message?.content) {
             const parsed = JSON.parse(openaiData.choices[0].message.content);
-            if (parsed.findings && parsed.findings.length > 0) {
-              analysisFindings = parsed.findings;
-            }
-            if (parsed.estimatedSavings) {
-              estimatedSavingsValue = parsed.estimatedSavings;
-            }
+            if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
+            if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
+            if (parsed.disputeLetter) disputeLetterDraft = parsed.disputeLetter;
           }
         }
       } catch (aiErr) {
@@ -66,7 +64,6 @@ export default async function handler(req, res) {
     }
 
     if (process.env.RESEND_API_KEY) {
-      // 1. Client-Facing Email Template
       const clientHtml = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
           <h2 style="color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 8px;">PatientShield Forensic Audit Ingestion</h2>
@@ -78,19 +75,23 @@ export default async function handler(req, res) {
             <li><strong>Hospital:</strong> ${hospitalName}</li>
             <li><strong>Submitted Bill Amount:</strong> $${formattedBillAmount}</li>
             <li><strong>Itemized Bill:</strong> ✅ Received (${fileName})</li>
+            <li><strong>EOB / Insurance Statement:</strong> ${eobName !== 'Not Provided' ? '✅ Received' : '⚠️ Not Provided'}</li>
+            <li><strong>Medical Records / MAR:</strong> ${recordsName !== 'Not Provided' ? '✅ Received' : '⚠️ Not Provided'}</li>
             <li><strong>Estimated Potential Savings (Preliminary Estimate):</strong> <span style="color: #0284c7; font-weight: bold;">${estimatedSavingsValue}</span></li>
           </ul>
           <p style="font-size: 11px; color: #64748b; font-style: italic;">*Note: This figure is an initial AI-generated estimate based on available documentation and is subject to final clinical nurse review and chargemaster verification.</p>
 
-          <h3 style="color: #d97706; margin-top: 20px;">Action Required: Missing Documentation</h3>
-          <p style="font-size: 14px; color: #475569;">To perform an absolute deep-dive validation on complex items (such as pharmaceutical dosing, infusion timestamps, or per diem levels), we recommend uploading your Explanation of Benefits (EOB) and Medical Records / MAR.</p>
-          
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 5px; margin-top: 15px;">
-            <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 14px;">🔒 How to Upload Securely & HIPAA-Compliant</h4>
-            <p style="font-size: 13px; color: #15803d; margin: 0; line-height: 1.5;">
-              To ensure full HIPAA compliance and protect your sensitive health information, please <strong>reply directly to this secure email</strong> with your additional documents attached. Our encrypted ingestion pipeline will automatically route them to your secure file vault.
-            </p>
-          </div>
+          ${eobName === 'Not Provided' || recordsName === 'Not Provided' ? `
+            <h3 style="color: #d97706; margin-top: 20px;">Action Required: Missing Documentation</h3>
+            <p style="font-size: 14px; color: #475569;">To perform an absolute deep-dive validation on complex items (such as pharmaceutical dosing, infusion timestamps, or per diem levels), we recommend uploading your missing documents.</p>
+            
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 5px; margin-top: 15px;">
+              <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 14px;">🔒 How to Upload Securely & HIPAA-Compliant</h4>
+              <p style="font-size: 13px; color: #15803d; margin: 0; line-height: 1.5;">
+                To ensure full HIPAA compliance and protect your sensitive health information, please <strong>reply directly to this secure email</strong> with your additional documents attached. Our encrypted ingestion pipeline will automatically route them to your secure file vault.
+              </p>
+            </div>
+          ` : ''}
 
           <h3 style="color: #333; margin-top: 20px;">Initial Forensic Breakdown</h3>
           <div style="background: #f1f5f9; padding: 15px; border-radius: 5px;">
@@ -115,10 +116,9 @@ export default async function handler(req, res) {
         }),
       });
 
-      // 2. Admin-Facing Email Template
       const adminHtml = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-          <h2 style="color: #b91c1c; border-bottom: 2px solid #b91c1c; padding-bottom: 8px;">New Lead Forensic Breakdown</h2>
+          <h2 style="color: #b91c1c; border-bottom: 2px solid #b91c1c; padding-bottom: 8px;">New Lead Forensic Breakdown & Dispute Draft</h2>
           
           <h3 style="color: #333;">Client Contact Info</h3>
           <ul style="line-height: 1.6; background: #fef2f2; padding: 15px; border-radius: 5px; list-style-type: none;">
@@ -127,13 +127,20 @@ export default async function handler(req, res) {
             <li><strong>Phone:</strong> ${phone}</li>
             <li><strong>Hospital:</strong> ${hospitalName}</li>
             <li><strong>Submitted Bill Amount:</strong> <span style="color: #b91c1c; font-weight: bold;">$${formattedBillAmount}</span></li>
-            <li><strong>Itemized Bill File:</strong> ${fileName}</li>
+            <li><strong>Itemized Bill:</strong> ${fileName}</li>
+            <li><strong>EOB:</strong> ${eobName}</li>
+            <li><strong>Medical Records:</strong> ${recordsName}</li>
           </ul>
 
-          <h3 style="color: #333;">AI Forensic Findings Breakdown</h3>
+          <h3 style="color: #333;">AI Forensic Findings</h3>
           <p><strong>Estimated Savings Range:</strong> ${estimatedSavingsValue}</p>
           <div style="background: #f1f5f9; padding: 15px; border-radius: 5px;">
             ${analysisFindings.map(f => `<p><strong>${f.category}:</strong> ${f.description}</p>`).join('')}
+          </div>
+
+          <h3 style="color: #333; margin-top: 20px;">Generated Hospital Dispute Letter Draft</h3>
+          <div style="background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-size: 13px; color: #334155;">
+            ${disputeLetterDraft}
           </div>
         </div>
       `;
@@ -144,7 +151,7 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           from: 'PatientShield <audit@thepatientshield.com>',
           to: ['Admin@thepatientshield.com'],
-          subject: `[FORENSIC AUDIT] ${fullName} - ${hospitalName} ($${formattedBillAmount})`,
+          subject: `[FORENSIC AUDIT & LETTER] ${fullName} - ${hospitalName} ($${formattedBillAmount})`,
           html: adminHtml,
         }),
       });

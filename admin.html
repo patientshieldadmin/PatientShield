@@ -118,13 +118,16 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-xl">
                                 <div>
                                     <p class="font-semibold text-slate-700 mb-1">Uploaded Documents:</p>
-                                    <p class="text-slate-600">• Itemized Bill: ${lead.fileName}</p>
+                                    <p class="text-slate-600 flex items-center gap-2">
+                                        • Itemized Bill: ${lead.fileName}
+                                        ${lead.fileData ? `<a href="${lead.fileData}" target="_blank" class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded hover:bg-blue-700 font-medium">View File</a>` : ''}
+                                    </p>
                                     <p class="text-slate-600">• EOB: ${lead.eobName}</p>
                                     <p class="text-slate-600">• Medical Records: ${lead.recordsName}</p>
                                 </div>
                                 <div>
                                     <p class="font-semibold text-slate-700 mb-1">AI Forensic Findings:</p>
-                                    ${lead.analysisFindings && lead.analysisFindings.length > 0 ? lead.analysisFindings.map(f => `<p class="text-slate-600 text-xs">• <strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p class="text-slate-500 text-xs">Pending clinical review.</p>'}
+                                    ${lead.analysisFindings && lead.analysisFindings.length > 0 ? lead.analysisFindings.map(f => `<p class="text-slate-600 text-xs">• <strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p class="text-slate-500 text-xs">Pending clinical review (Ensure OPENAI_API_KEY is active in Vercel).</p>'}
                                 </div>
                             </div>
 

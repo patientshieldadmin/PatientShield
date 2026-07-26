@@ -1,181 +1,65 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PatientShield - Medical Bill Forensic Audit</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            background: #ffffff;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            width: 100%;
-            max-width: 500px;
-            box-sizing: border-box;
-        }
-        h2 {
-            color: #0f172a;
-            margin-top: 0;
-            font-size: 1.5rem;
-            text-align: center;
-        }
-        p.subtitle {
-            text-align: center;
-            color: #64748b;
-            font-size: 0.875rem;
-            margin-bottom: 1.5rem;
-        }
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-bottom: 0.375rem;
-            color: #334155;
-        }
-        input[type="text"], input[type="email"], input[type="file"] {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            font-size: 1rem;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            background-color: #0f172a;
-            color: white;
-            border: none;
-            padding: 0.75rem;
-            font-size: 1rem;
-            font-weight: 600;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            margin-top: 1rem;
-        }
-        button:hover {
-            background-color: #1e293b;
-        }
-        button:disabled {
-            background-color: #94a3b8;
-            cursor: not-allowed;
-        }
-        .status {
-            margin-top: 1rem;
-            text-align: center;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>PatientShield Intake</h2>
-        <p class="subtitle">Secure High-Acuity Medical Bill Audit</p>
+<script>
+    document.getElementById('auditForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('submitBtn');
+        const statusMessage = document.getElementById('statusMessage');
         
-        <form id="auditForm">
-            <div class="form-group">
-                <label for="clientName">Full Name</label>
-                <input type="text" id="clientName" required placeholder="John Doe">
-            </div>
-            
-            <div class="form-group">
-                <label for="clientEmail">Email Address</label>
-                <input type="email" id="clientEmail" required placeholder="john@example.com">
-            </div>
-            
-            <div class="form-group">
-                <label for="hospitalName">Hospital / Facility Name</label>
-                <input type="text" id="hospitalName" required placeholder="General Hospital">
-            </div>
-            
-            <div class="form-group">
-                <label for="documentFile">Upload Itemized Bill / Medical Record</label>
-                <input type="file" id="documentFile" required accept=".pdf,.txt,.png,.jpg,.jpeg">
-            </div>
-            
-            <button type="submit" id="submitBtn">Submit For Forensic Audit</button>
-        </form>
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Analyzing Bill & Uploading...';
+        statusMessage.textContent = '';
+
+        const clientName = document.getElementById('clientName').value;
+        const clientEmail = document.getElementById('clientEmail').value;
+        const hospitalName = document.getElementById('hospitalName').value;
+        const fileInput = document.getElementById('documentFile').files[0];
+
+        if (!fileInput) {
+            statusMessage.textContent = 'Please select a file to upload.';
+            statusMessage.style.color = '#dc2626';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit For Forensic Audit';
+            return;
+        }
+
+        const reader = new FileReader();
         
-        <div id="statusMessage" class="status"></div>
-    </div>
+        // Use readAsDataURL for PDFs/images to safely transmit binary files without breaking JSON parsing
+        reader.onload = async function(event) {
+            const documentText = event.target.result;
 
-    <script>
-        document.getElementById('auditForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const submitBtn = document.getElementById('submitBtn');
-            const statusMessage = document.getElementById('statusMessage');
-            
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Analyzing Bill & Uploading...';
-            statusMessage.textContent = '';
+            try {
+                const response = await fetch('/api/submit-intake', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clientName, clientEmail, hospitalName, documentText })
+                });
 
-            const clientName = document.getElementById('clientName').value;
-            const clientEmail = document.getElementById('clientEmail').value;
-            const hospitalName = document.getElementById('hospitalName').value;
-            const fileInput = document.getElementById('documentFile').files[0];
+                const data = await response.json();
 
-            if (!fileInput) {
-                statusMessage.textContent = 'Please select a file to upload.';
-                statusMessage.style.color = '#dc2626';
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit For Forensic Audit';
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = async function(event) {
-                const documentText = event.target.result;
-
-                try {
-                    const response = await fetch('/api/submit-intake', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ clientName, clientEmail, hospitalName, documentText })
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        statusMessage.style.color = '#16a34a';
-                        statusMessage.textContent = 'Success! Document verified and audit pipeline initiated.';
-                        document.getElementById('auditForm').reset();
-                    } else {
-                        throw new Error(data.error || 'Failed to process intake.');
-                    }
-                } catch (error) {
-                    statusMessage.style.color = '#dc2626';
-                    statusMessage.textContent = 'Error: ' + error.message;
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Submit For Forensic Audit';
+                if (response.ok) {
+                    statusMessage.style.color = '#16a34a';
+                    statusMessage.textContent = 'Success! Document verified and audit pipeline initiated.';
+                    document.getElementById('auditForm').reset();
+                } else {
+                    throw new Error(data.error || 'Failed to process intake.');
                 }
-            };
-
-            reader.onerror = function() {
+            } catch (error) {
                 statusMessage.style.color = '#dc2626';
-                statusMessage.textContent = 'Error reading the uploaded file.';
+                statusMessage.textContent = 'Error: ' + error.message;
+            } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Submit For Forensic Audit';
-            };
+            }
+        };
 
-            reader.readAsText(fileInput);
-        });
-    </script>
-</body>
-</html>
+        reader.onerror = function() {
+            statusMessage.style.color = '#dc2626';
+            statusMessage.textContent = 'Error reading the uploaded file.';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit For Forensic Audit';
+        };
+
+        // Read file as Data URL to support PDFs and images cleanly
+        reader.readAsDataURL(fileInput);
+    });
+</script>

@@ -1,64 +1,67 @@
-    <script>
-        document.getElementById('auditForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            btn.innerText = "Processing Multi-Document Forensic Ingestion...";
-            btn.disabled = true;
+<script>
+    document.getElementById('auditForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Processing Secure Audit...";
+        btn.disabled = true;
 
-            const itemizedFile = document.getElementById('itemizedBill').files[0];
-            const eobFile = document.getElementById('eobDocument').files[0];
-            const recordsFile = document.getElementById('medicalRecords').files[0];
+        const fileInput = document.getElementById('itemizedBill');
+        const file = fileInput.files[0];
 
-            if (!itemizedFile) {
-                alert('Please upload an itemized hospital bill.');
-                btn.innerText = "Submit For Free Forensic Audit";
-                btn.disabled = false;
-                return;
-            }
+        if (!file) {
+            alert('Please upload an itemized hospital bill.');
+            btn.innerText = "Submit For Free Forensic Audit";
+            btn.disabled = false;
+            return;
+        }
 
-            // Helper to convert file to base64
-            const toBase64 = file => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve({ name: file.name, data: reader.result });
-                reader.onerror = error => reject(error);
-            });
+        const reader = new FileReader();
+        reader.onerror = function() {
+            alert('Error reading the uploaded file.');
+            btn.innerText = "Submit For Free Forensic Audit";
+            btn.disabled = false;
+        };
+
+        reader.onload = async function(event) {
+            const formData = {
+                fullName: document.getElementById('fullName').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                hospitalName: document.getElementById('hospitalName').value,
+                billAmount: document.getElementById('billAmount').value,
+                fileName: file.name,
+                fileData: event.target.result
+            };
 
             try {
-                const itemizedPayload = await toBase64(itemizedFile);
-                const eobPayload = eobFile ? await toBase64(eobFile) : null;
-                const recordsPayload = recordsFile ? await toBase64(recordsFile) : null;
-
-                const formData = {
-                    fullName: document.getElementById('fullName').value,
-                    email: document.getElementById('email').value,
-                    phone: document.getElementById('phone').value,
-                    hospitalName: document.getElementById('hospitalName').value,
-                    billAmount: document.getElementById('billAmount').value,
-                    itemizedBill: itemizedPayload,
-                    eobDocument: eobPayload,
-                    medicalRecords: recordsPayload
-                };
-
                 const response = await fetch('/api/submit-intake', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
-                const result = await response.json();
+
+                let result = {};
+                try {
+                    result = await response.json();
+                } catch (parseErr) {
+                    console.warn('Non-JSON response received');
+                }
                 
                 if (response.ok) {
                     document.getElementById('auditForm').style.display = 'none';
                     document.getElementById('successMessage').classList.remove('hidden');
                 } else {
-                    alert(result.message || "Error processing submission.");
+                    alert(result.message || "Error processing submission. Please try again.");
                     btn.innerText = "Submit For Free Forensic Audit";
                     btn.disabled = false;
                 }
             } catch (err) {
-                alert("Network error during file processing: " + err.message);
+                alert("Network error during submission. Please check your connection.");
                 btn.innerText = "Submit For Free Forensic Audit";
                 btn.disabled = false;
             }
-        });
-    </script>
+        };
+
+        reader.readAsDataURL(file);
+    });
+</script>

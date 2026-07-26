@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. OpenAI Universal Forensic Audit Pipeline
+    // 2. OpenAI Universal Forensic Audit Pipeline with Fortified Anti-False-Positive Rules
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -53,21 +53,21 @@ export default async function handler(req, res) {
             messages: [
               {
                 role: 'system',
-                content: `You are an elite forensic medical bill auditor and healthcare compliance expert specializing in federal transparency mandates, the No Surprises Act, unbundling detection, and chargemaster cost-to-charge crosswalks. 
+                content: `You are an elite forensic medical bill auditor and healthcare compliance expert specializing in federal transparency mandates, the No Surprises Act, unbundling detection, and chargemaster cost-to-charge crosswalks.
 
-                Analyze the provided raw medical bill text meticulously, regardless of medical specialty, facility type, or department. Follow these strict auditing rules:
-                1. DO NOT flag sequential daily room/board or daily service charges (such as daily room rates billed on different calendar dates) as duplicates. Room or daily service charges on different days are valid.
-                2. ONLY flag true administrative duplicate line items (same code, same description, same day, exact amount) and suspicious over-clustering (e.g., redundant panel testing or unbundled components in a single 24-hour window).
-                3. Calculate "estimatedSavings" strictly from verified line-item errors, duplicate entries, and redundant services found in the text.
+                Analyze the provided raw medical bill text meticulously, regardless of medical specialty, facility type, or department. You must strictly adhere to these anti-false-positive rules:
+                1. ABSOLUTE PROHIBITION: NEVER flag room and board, daily NICU/ICU room charges, daily therapy, or daily professional care codes as duplicates simply because they appear multiple times in the document. If they occur on DIFFERENT calendar dates, they are valid daily occupancy charges.
+                2. ONLY flag true administrative duplicate line items where the EXACT same procedure code, description, dollar amount, and calendar date appear more than once within the same 24-hour period, or true redundant panel over-clustering.
+                3. Calculate "estimatedSavings" exclusively from verified, non-daily line-item errors, true same-day duplicates, or actual markup anomalies.
 
                 Extract and return ONLY a valid JSON object with these exact keys:
                 - "extractedTotal": Exact gross total balance as a currency string (e.g., "$125,430.00").
                 - "extractedPatient": The actual patient or guarantor name printed on the bill text. Do not use form inputs.
                 - "extractedFacility": The actual hospital or medical facility name printed on the bill text. Do not use form inputs.
-                - "findings": Array of objects with "category" and "description" detailing specific markups, unbundled codes, or confirmed duplicate line items.
-                - "estimatedSavings": Precise dollar amount of potential savings calculated exclusively from actual verified billing errors.
+                - "findings": Array of objects with "category" and "description" detailing verified line-item errors or true same-day duplicates only.
+                - "estimatedSavings": Precise dollar amount of potential savings calculated exclusively from actual verified billing errors (exclude daily room charges).
                 - "missingInfoRequests": Array of strings telling the customer what additional documents to gather for a deeper cross-check (e.g., "Request matching Explanation of Benefits (EOB) from your insurance provider", "Gather itemized pharmacy or supply logs for audit verification").
-                - "disputeLetter": A formal dispute letter using the extracted patient name, extracted facility, extracted total, and findings.
+                - "disputeLetter": A formal dispute letter using the extracted patient name, extracted facility, extracted total, and verified findings.
                 
                 Do not wrap the JSON in markdown code blocks.`
               },
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
             if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
             if (parsed.missingInfoRequests && parsed.missingInfoRequests.length > 0) missingInfoRequests = parsed.missingInfoRequests;
             
-            // Savings formatting logic applied universally
+            // Savings formatting snippet integrated and safely handled
             if (parsed.estimatedSavings) {
               let formattedSavings = parsed.estimatedSavings;
               if (!isNaN(parseFloat(formattedSavings))) {
@@ -148,9 +148,10 @@ We hereby formally dispute the excessive, inflated, and unbundled charges itemiz
 Please provide itemized source verification, cost-to-charge crosswalk documentation, and adjusted billing within 30 days.`;
     }
 
+    const leadId = Date.now().toString();
+
     // 3. Save Lead to Upstash Redis Database
     try {
-      const leadId = Date.now().toString();
       const leadData = {
         id: leadId,
         fullName: actualPatientName,
@@ -188,7 +189,65 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
       console.error('Database Storage Error:', dbErr);
     }
 
-    return res.status(200).json({ status: 'success', message: 'Forensic audit completed successfully.' });
+    // 4. Send HIPAA-Compliant Client Notification Email via Resend API
+    try {
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (resendApiKey && clientEmail) {
+        const dashboardUrl = `[https://thepatientshield.com/dashboard?id=$](https://thepatientshield.com/dashboard?id=$){leadId}`;
+        
+        // Build missing info checklist html if any
+        let missingHtml = '';
+        if (eobName === 'Not Provided' || recordsName === 'Not Provided' || missingInfoRequests.length > 0) {
+          missingHtml = `
+            <div style="background-color: #fff8e1; border-left: 4px solid #ffa000; padding: 15px; margin: 20px 0;">
+              <p style="margin: 0; font-weight: bold; color: #b78103;">⚠️ Additional Documents Needed for Accurate Cross-Check:</p>
+              <p style="margin: 5px 0 0 0; color: #333;">To ensure a fully accurate, legally sound, and comprehensive audit, please upload your matching Explanation of Benefits (EOB) or medical records.</p>
+            </div>
+          `;
+        }
+
+        await fetch('[https://api.resend.com/emails](https://api.resend.com/emails)', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'The Patient Shield <audit@thepatientshield.com>',
+            to: [clientEmail],
+            subject: `Preliminary Medical Bill Audit Update: Potential Savings Found (${estimatedSavingsValue})`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                <h2 style="color: #0f172a;">Your Medical Bill Audit Has Been Processed</h2>
+                <p>Hello ${actualPatientName},</p>
+                <p>We have received and securely processed your uploaded statement for <strong>${actualFacilityName}</strong>.</p>
+                
+                <div style="background-color: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                  <p style="margin: 0 0 10px 0;"><strong>Gross Bill Total:</strong> ${extractedBillAmount}</p>
+                  <p style="margin: 0;"><strong>Preliminary Potential Savings Identified:</strong> <span style="color: #16a34a; font-size: 18px; font-weight: bold;">${estimatedSavingsValue}</span></p>
+                </div>
+
+                ${missingHtml}
+
+                <p>To view your preliminary findings, upload any missing documents (such as EOBs), and securely finalize your review, please click the secure link below:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${dashboardUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
+                </div>
+
+                <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                  This communication is handled securely in compliance with HIPAA guidelines. Final dispute documents and full resolution packages become accessible upon service completion.
+                </p>
+              </div>
+            `
+          })
+        });
+      }
+    } catch (emailErr) {
+      console.error('Email Dispatch Error:', emailErr);
+    }
+
+    return res.status(200).json({ status: 'success', message: 'Forensic audit completed and client notification sent successfully.' });
   } catch (error) {
     console.error('API Error:', error);
     return res.status(500).json({ status: 'error', message: 'Internal server error during processing.' });

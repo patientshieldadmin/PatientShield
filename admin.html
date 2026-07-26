@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PatientShield | Secure Admin Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4](https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4)"></script>
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans antialiased">
 
@@ -128,7 +128,7 @@
 
                 if (result.status === 'success') {
                     alert('Email approved and dispatched successfully!');
-                    loadLeads(); // Refresh leads list
+                    loadLeads();
                 } else {
                     alert('Error: ' + result.message);
                 }
@@ -177,17 +177,26 @@
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-xl">
                                     <div>
-                                        <p class="font-semibold text-slate-700 mb-1">Uploaded Documents:</p>
+                                        <p class="font-semibold text-slate-700 mb-1">Uploaded Documents & Requests:</p>
                                         <p class="text-slate-600 flex items-center justify-between gap-2 mb-2">
                                             <span>• Bill: ${lead.fileName}</span>
                                             ${lead.fileData ? `<button onclick="openFile('${lead.fileData}')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-700 font-semibold cursor-pointer shadow-sm">View File</button>` : ''}
                                         </p>
                                         <p class="text-slate-600">• EOB: ${lead.eobName}</p>
-                                        <p class="text-slate-600">• Records: ${lead.recordsName}</p>
+                                        <p class="text-slate-600 mb-3">• Records: ${lead.recordsName}</p>
+                                        
+                                        ${lead.missingInfoRequests && lead.missingInfoRequests.length > 0 ? `
+                                            <div class="bg-amber-50 border-l-4 border-amber-500 p-2.5 text-xs text-amber-900 rounded-lg">
+                                                <p class="font-bold mb-1">⚠️ Missing Information Requested from Client:</p>
+                                                <ul class="list-disc pl-4 space-y-0.5">
+                                                    ${lead.missingInfoRequests.map(req => `<li>${req}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
                                     </div>
                                     <div>
                                         <p class="font-semibold text-slate-700 mb-1">AI Forensic Findings & Discrepancies:</p>
-                                        ${lead.analysisFindings && lead.analysisFindings.length > 0 ? lead.analysisFindings.map(f => `<p class="text-slate-600 text-xs mb-1.5">• <strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p class="text-slate-500 text-xs">Pending clinical audit review.</p>'}
+                                        ${lead.analysisFindings && lead.analysisFindings.length > 0 ? lead.analysisFindings.map(f => `<p class="text-slate-600 text-xs mb-1.5">• <strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p class="text-slate-500 text-xs italic">No verified billing discrepancies or duplicate entries identified yet.</p>'}
                                     </div>
                                 </div>
 

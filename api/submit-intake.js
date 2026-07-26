@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Save Lead to Upstash Redis directly via REST
+    // Save Lead to Upstash / Vercel KV Redis via REST with complete environment variable fallback
     try {
       const leadId = Date.now().toString();
       const leadData = {
@@ -105,8 +105,8 @@ export default async function handler(req, res) {
         submittedAt: new Date().toISOString()
       };
 
-      const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-      const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+      const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
+      const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
       if (redisUrl && redisToken) {
         await fetch(redisUrl, {

@@ -74,7 +74,7 @@ export default async function handler(req, res) {
                 - "extractedTotal": Exact gross total balance as a currency string (e.g., "$125,430.00").
                 - "extractedPatient": The actual patient or guarantor name printed on the bill text. Do not use form inputs.
                 - "extractedFacility": The actual hospital or medical facility name printed on the bill text. Do not use form inputs.
-                - "findings": Array of objects with "category" and "description" containing ONLY self-audited, surviving verified errors. If none, return an empty array.
+                - "findings": Array of objects with "category" and "description" containing ONLY self-audited, surviving verified errors that contribute to the estimated savings. If estimatedSavings is "$0.00", this array MUST be empty.
                 - "estimatedSavings": Precise dollar amount of potential savings calculated exclusively from surviving verified errors (or "$0.00" if none).
                 - "missingInfoRequests": Array of strings telling the customer what additional documents to gather for a deeper cross-check.
                 - "disputeLetter": A formal dispute letter using the extracted patient name, extracted facility, extracted total, and surviving verified findings. If estimatedSavings is "$0.00", explicitly state that no billing discrepancies or duplicate entries were found and no dispute letter is required.
@@ -135,7 +135,9 @@ export default async function handler(req, res) {
       aiErrorLog = 'Extracted file text length is 0 (PDF text layer could not be read).';
     }
 
+    // Enforce Guard Clause: If $0.00 savings, clear out findings and set no-dispute message
     if (estimatedSavingsValue === '$0.00' || analysisFindings.length === 0) {
+      analysisFindings = [];
       disputeLetterDraft = `Audit Complete: No billable errors, markup anomalies, or verified duplicate entries were identified in the statement for ${actualFacilityName}. A formal dispute letter is not required at this time.`;
     }
 
@@ -149,7 +151,6 @@ export default async function handler(req, res) {
     const leadId = Date.now().toString();
     const dashboardUrl = `[https://thepatientshield.com/dashboard?id=$](https://thepatientshield.com/dashboard?id=$){leadId}`;
 
-    // Build missing items HTML list for the email
     let missingHtml = '';
     if (missingInfoRequests.length > 0) {
       missingHtml = `

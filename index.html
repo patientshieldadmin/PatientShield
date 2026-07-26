@@ -107,8 +107,9 @@
             btn.innerText = "Processing Secure Audit...";
             btn.disabled = true;
 
-            const fileInput = document.getElementById('itemizedBill');
-            const file = fileInput.files[0];
+            const itemizedInput = document.getElementById('itemizedBill').files[0];
+            const eobInput = document.getElementById('eobDocument').files[0];
+            const recordsInput = document.getElementById('medicalRecords').files[0];
 
             const formData = {
                 fullName: document.getElementById('fullName').value,
@@ -116,7 +117,9 @@
                 phone: document.getElementById('phone').value,
                 hospitalName: document.getElementById('hospitalName').value,
                 billAmount: document.getElementById('billAmount').value,
-                fileName: file ? file.name : 'Itemized Bill.pdf'
+                fileName: itemizedInput ? itemizedInput.name : 'Itemized Bill.pdf',
+                eobName: eobInput ? eobInput.name : 'Not Provided',
+                recordsName: recordsInput ? recordsInput.name : 'Not Provided'
             };
 
             try {

@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PatientShield | Zero Upfront Costs • HIPAA Secure</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- PDF.js for parsing PDF text in browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased">
 
@@ -61,7 +66,7 @@
                     </div>
                 </div>
 
-                <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md">Start Free Bill Review</button>
+                <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md cursor-pointer">Start Free Bill Review</button>
             </form>
 
             <p id="statusMsg" class="text-center text-sm font-semibold mt-4"></p>
@@ -69,7 +74,7 @@
     </div>
 
     <script>
-        function convertFileToBase64(file) {
+        async function convertFileToBase64(file) {
             return new Promise((resolve, reject) => {
                 if (!file) {
                     resolve(null);
@@ -82,15 +87,33 @@
             });
         }
 
+        async function extractPdfText(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let fullText = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += `--- Page ${i} ---\n` + pageText + '\n';
+                }
+                return fullText;
+            } catch (err) {
+                console.error('PDF Extraction Error:', err);
+                return '';
+            }
+        }
+
         document.getElementById('intakeForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const submitBtn = document.getElementById('submitBtn');
             const statusMsg = document.getElementById('statusMsg');
             
-            submitBtn.textContent = 'Running AI Forensic Audit... Please Wait';
+            submitBtn.textContent = 'Running AI Forensic Audit on Uploaded Bill...';
             submitBtn.disabled = true;
-            statusMsg.textContent = 'Scanning document lines, verifying billing codes, and drafting hospital dispute packet...';
+            statusMsg.textContent = 'Extracting bill text, scanning CPT codes, and analyzing line items...';
             statusMsg.className = 'text-center text-sm font-semibold text-blue-600 mt-4';
 
             try {
@@ -104,13 +127,20 @@
                 const recordsFileInput = document.getElementById('recordsFile');
 
                 let fileData = null;
+                let fileText = '';
                 let fileName = 'Not Provided';
                 let eobName = 'Not Provided';
                 let recordsName = 'Not Provided';
 
                 if (billFileInput && billFileInput.files[0]) {
-                    fileName = billFileInput.files[0].name;
-                    fileData = await convertFileToBase64(billFileInput.files[0]);
+                    const file = billFileInput.files[0];
+                    fileName = file.name;
+                    fileData = await convertFileToBase64(file);
+                    
+                    if (file.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')) {
+                        statusMsg.textContent = 'Reading PDF text contents...';
+                        fileText = await extractPdfText(file);
+                    }
                 }
                 if (eobFileInput && eobFileInput.files[0]) {
                     eobName = eobFileInput.files[0].name;
@@ -126,6 +156,7 @@
                     hospitalName,
                     fileName,
                     fileData,
+                    fileText, // Pass extracted PDF text directly to backend
                     eobName,
                     recordsName
                 };

@@ -20,18 +20,13 @@ export default async function handler(req, res) {
     const eobName = body.eobName || 'Not Provided';
     const recordsName = body.recordsName || 'Not Provided';
 
-    // Diagnostic logging to Vercel console
-    console.log('--- INTAKE PROCESSING START ---');
-    console.log('File Name:', fileName);
-    console.log('File Text Length:', fileText ? fileText.length : 0);
-    console.log('OPENAI_API_KEY Present:', !!process.env.OPENAI_API_KEY);
-
     let extractedBillAmount = '$0.00';
     let estimatedSavingsValue = '$0.00';
     let actualPatientName = fullName;
     let actualFacilityName = hospitalName;
     let analysisFindings = [];
     let disputeLetterDraft = '';
+    let aiErrorLog = null;
 
     // 1. Local fallback regex parsing for total amount
     if (fileText) {
@@ -44,7 +39,6 @@ export default async function handler(req, res) {
     }
 
     // 2. OpenAI Deep Forensic Audit
-    let aiSuccess = false;
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -97,29 +91,32 @@ export default async function handler(req, res) {
             if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
             if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
             if (parsed.disputeLetter && parsed.disputeLetter.length > 50) disputeLetterDraft = parsed.disputeLetter;
-            aiSuccess = true;
-            console.log('OpenAI Forensic Audit Successful');
           }
         } else {
-          console.error('OpenAI API Error Response:', await openaiResponse.text());
+          aiErrorLog = await openaiResponse.text();
+          console.error('OpenAI API Error Response:', aiErrorLog);
         }
       } catch (aiErr) {
+        aiErrorLog = aiErr.message;
         console.error('AI Processing Exception:', aiErr);
       }
-    } else {
-      console.warn('OpenAI skipped: Missing API key or empty file text.');
+    } else if (!process.env.OPENAI_API_KEY) {
+      aiErrorLog = 'OPENAI_API_KEY environment variable is missing in Vercel.';
+    } else if (fileText.trim().length === 0) {
+      aiErrorLog = 'Extracted file text length is 0 (PDF text layer could not be read).';
     }
 
-    // Fallback initializations if AI did not run or populate fields
-    if (!aiSuccess) {
-      if (analysisFindings.length === 0) {
-        analysisFindings = [
-          { category: 'Chargemaster Markup & Room Rate Inflation', description: `Accommodation and ancillary service charges submitted by ${actualFacilityName} exceed regional Medicare fair-market reimbursement benchmarks.` },
-          { category: 'Unbundled Ancillary CPT Codes', description: 'Diagnostic and therapeutic services billed separately instead of standard bundled package rates.' }
-        ];
-      }
-      if (!disputeLetterDraft) {
-        disputeLetterDraft = `[HOSPITAL BILLING DISPUTE & ITEMIZED AUDIT REQUEST]
+    // If OpenAI failed, inject the exact reason into the dashboard findings so you see it immediately
+    if (aiErrorLog) {
+      analysisFindings = [
+        { category: '⚠️ AI Audit Diagnostic Error', description: aiErrorLog },
+        { category: 'Chargemaster Markup Baseline', description: `Accommodation and ancillary service charges submitted exceed regional benchmarks.` }
+      ];
+    }
+
+    // Fallback dispute letter if unpopulated
+    if (!disputeLetterDraft) {
+      disputeLetterDraft = `[HOSPITAL BILLING DISPUTE & ITEMIZED AUDIT REQUEST]
 
 Dear Billing Compliance Department,
 
@@ -131,7 +128,6 @@ Statement Total Referenced: ${extractedBillAmount}
 We hereby formally dispute the excessive, inflated, and unbundled charges itemized on the recent billing statement. In accordance with federal transparency mandates, the No Surprises Act, and healthcare itemized audit guidelines, we require immediate itemized source verification, CPT/HCPCS code validation, and a complete chargemaster cost-to-charge crosswalk.
 
 Please provide itemized source verification, cost-to-charge crosswalk documentation, and adjusted billing within 30 days.`;
-      }
     }
 
     // 3. Save Lead to Upstash Redis Database

@@ -31,7 +31,7 @@
                 <h1 class="text-3xl font-extrabold text-slate-900">PatientShield Admin Dashboard</h1>
                 <p class="text-sm text-slate-500">Manage client intakes, review AI forensic findings, and access generated dispute letters.</p>
             </div>
-            <button onclick="loadLeads()" class="bg-white border border-slate-300 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 shadow-sm">Refresh Leads</button>
+            <button onclick="loadLeads()" class="bg-white border border-slate-300 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 shadow-sm cursor-pointer">Refresh Leads</button>
         </div>
 
         <div id="leadsContainer" class="space-y-6">
@@ -93,7 +93,6 @@
             }
         }
 
-        // Robust blob viewer to prevent mobile blank pages
         function openFile(base64Data) {
             if (!base64Data) {
                 alert('No file data attached to this record.');
@@ -127,14 +126,20 @@
                 if (data.status === 'success' && data.leads.length > 0) {
                     container.innerHTML = data.leads.map(lead => `
                         <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-6 space-y-4">
-                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-4 gap-2">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-4 gap-4">
                                 <div>
                                     <h3 class="text-xl font-bold text-slate-800">${lead.fullName}</h3>
                                     <p class="text-sm text-slate-500">Hospital: <strong class="text-blue-600">${lead.hospitalName}</strong> | Email: ${lead.clientEmail} | Phone: ${lead.phone}</p>
                                 </div>
-                                <div class="text-right">
-                                    <span class="text-xs text-slate-400 block">Extracted Bill Total</span>
-                                    <span class="text-lg font-extrabold text-red-600">${lead.extractedBillAmount}</span>
+                                <div class="flex gap-4 items-center">
+                                    <div class="text-right">
+                                        <span class="text-xs text-slate-400 block font-medium">Extracted Bill Total</span>
+                                        <span class="text-lg font-extrabold text-slate-900">${lead.extractedBillAmount || '$0'}</span>
+                                    </div>
+                                    <div class="text-right bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200">
+                                        <span class="text-xs text-emerald-700 block font-semibold">Potential Savings</span>
+                                        <span class="text-lg font-black text-emerald-600">${lead.estimatedSavings || '$0.00'}</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -142,26 +147,26 @@
                                 <div>
                                     <p class="font-semibold text-slate-700 mb-1">Uploaded Documents:</p>
                                     <p class="text-slate-600 flex items-center justify-between gap-2 mb-2">
-                                        <span>• Itemized Bill: ${lead.fileName}</span>
+                                        <span>• Bill: ${lead.fileName}</span>
                                         ${lead.fileData ? `<button onclick="openFile('${lead.fileData}')" class="bg-blue-600 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-700 font-semibold cursor-pointer shadow-sm">View File</button>` : ''}
                                     </p>
                                     <p class="text-slate-600">• EOB: ${lead.eobName}</p>
-                                    <p class="text-slate-600">• Medical Records: ${lead.recordsName}</p>
+                                    <p class="text-slate-600">• Records: ${lead.recordsName}</p>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-slate-700 mb-1">AI Forensic Findings:</p>
-                                    ${lead.analysisFindings && lead.analysisFindings.length > 0 ? lead.analysisFindings.map(f => `<p class="text-slate-600 text-xs mb-1">• <strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p class="text-slate-500 text-xs">Pending clinical review.</p>'}
+                                    <p class="font-semibold text-slate-700 mb-1">AI Forensic Findings & Discrepancies:</p>
+                                    ${lead.analysisFindings && lead.analysisFindings.length > 0 ? lead.analysisFindings.map(f => `<p class="text-slate-600 text-xs mb-1.5">• <strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p class="text-slate-500 text-xs">Pending clinical audit review.</p>'}
                                 </div>
                             </div>
 
                             <div>
-                                <h4 class="font-bold text-sm text-slate-700 mb-2">Generated Hospital Dispute Letter Draft:</h4>
-                                <div class="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono whitespace-pre-wrap max-h-60 overflow-y-auto">${lead.disputeLetterDraft}</div>
+                                <h4 class="font-bold text-sm text-slate-700 mb-2">Generated Hospital Dispute Letter Draft (with Verification References):</h4>
+                                <div class="bg-slate-900 text-slate-100 p-4 rounded-xl text-xs font-mono whitespace-pre-wrap max-h-60 overflow-y-auto">${lead.disputeLetterDraft || 'Draft pending.'}</div>
                             </div>
                         </div>
                     `).join('');
                 } else {
-                    container.innerHTML = `<div class="bg-white rounded-xl p-8 text-center border border-slate-200 text-slate-500">No client audit records found yet. Run a test submission on your main site to populate the dashboard.</div>`;
+                    container.innerHTML = `<div class="bg-white rounded-xl p-8 text-center border border-slate-200 text-slate-500">No client audit records found yet.</div>`;
                 }
             } catch (err) {
                 container.innerHTML = `<div class="bg-red-50 text-red-700 rounded-xl p-6 text-center border border-red-200">Error loading leads from database.</div>`;

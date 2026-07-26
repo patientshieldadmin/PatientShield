@@ -18,48 +18,39 @@ export default async function handler(req, res) {
     const eobName = body.eobName || 'Not Provided';
     const recordsName = body.recordsName || 'Not Provided';
 
-    // 1. Precise local text-parsing baseline to guarantee accurate totals instantly
+    // Default fallbacks before AI analysis
     let extractedBillAmount = '$15,450.00';
+    let estimatedSavingsValue = '$4,635.00';
+    let actualPatientName = fullName;
+    let actualFacilityName = hospitalName;
+
     if (fileText) {
-      const totalMatch = fileText.match(/(?:Total Balance|Total Amount|Total Due|Total)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})/i) || fileText.match(/\$([\d,]+\.\d{2})/);
+      const totalMatch = fileText.match(/(?:Total Balance|Total Charges|Total Amount|Total Due|Total)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})/i) || fileText.match(/\$([\d,]+\.\d{2})/);
       if (totalMatch && totalMatch[1]) {
         extractedBillAmount = `$${totalMatch[1]}`;
-      } else {
-        const amounts = fileText.match(/\b\d{1,3}(?:,\d{3})+\.\d{2}\b/g);
-        if (amounts && amounts.length > 0) {
-          extractedBillAmount = `$${amounts[amounts.length - 1]}`;
-        }
       }
     }
 
     let numericTotal = parseFloat(extractedBillAmount.replace(/[^0-9.]/g, '')) || 15450;
-    let estimatedSavingsValue = `$${(numericTotal * 0.30).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
     let analysisFindings = [
-      { category: 'Chargemaster Markup & Room Rate Inflation', description: `Accommodation and ancillary service charges submitted by ${hospitalName} exceed regional Medicare fair-market reimbursement benchmarks.` },
-      { category: 'Unbundled Ancillary CPT Codes', description: 'Diagnostic and therapeutic services billed separately instead of standard bundled package rates.' },
-      { category: 'Pharmaceutical & Supply Variance', description: 'Significant markup identified on routine pharmaceutical and medical supply line items.' }
+      { category: 'Chargemaster Markup & Room Rate Inflation', description: `Accommodation and ancillary service charges submitted exceed regional Medicare fair-market reimbursement benchmarks.` },
+      { category: 'Unbundled Ancillary CPT Codes', description: 'Diagnostic and therapeutic services billed separately instead of standard bundled package rates.' }
     ];
 
     let disputeLetterDraft = `[HOSPITAL BILLING DISPUTE & ITEMIZED AUDIT REQUEST]
 
 Dear Billing Compliance Department,
 
-Patient Name: ${fullName}
-Facility: ${hospitalName}
+Patient Name: ${actualPatientName}
+Facility: ${actualFacilityName}
 Reference Document: ${fileName}
 Statement Total Referenced: ${extractedBillAmount}
 
 We hereby formally dispute the excessive, inflated, and unbundled charges itemized on the recent billing statement. In accordance with federal transparency mandates, the No Surprises Act, and healthcare itemized audit guidelines, we require immediate itemized source verification, CPT/HCPCS code validation, and a complete chargemaster cost-to-charge crosswalk.
 
-Verified Audit Discrepancies for Immediate Adjustment:
-1. Chargemaster Markup & Room Rate Inflation: Daily room and board rates drastically exceed median fair-market reimbursement benchmarks.
-2. Unbundled Ancillary Services: Therapeutic and diagnostic procedures have been improperly unbundled from primary room care.
-3. Pharmaceutical & Supply Verification: Requesting National Drug Code (NDC) level verification for all itemized pharmaceutical charges.
-
 Please provide itemized source verification, cost-to-charge crosswalk documentation, and adjusted billing within 30 days.`;
 
-    // 2. Expanded OpenAI Deep Forensic Engine with generous token capacity (4000 max tokens)
+    // OpenAI Deep Forensic Engine (Calculates itemized savings & extracts bill-specific names)
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -73,11 +64,19 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
             messages: [
               {
                 role: 'system',
-                content: 'You are an elite forensic medical bill auditor and healthcare compliance expert. Take your time to meticulously analyze every section of the provided hospital bill text. Identify exact gross charges, unbundled CPT codes, markup discrepancies, and calculate precise potential savings. Output valid JSON only with keys: "extractedTotal" (string with exact dollar sum), "findings" (array of objects with "category" and "description"), "estimatedSavings" (string with precise dollar sum), and "disputeLetter" (string containing an exhaustive, professional formal dispute letter incorporating specific line items, patient name, and hospital name).'
+                content: `You are an elite forensic medical bill auditor. Meticulously analyze the provided hospital bill text. 
+                1. Extract the exact total gross bill or balance amount ("extractedTotal").
+                2. Extract the actual patient or guarantor name printed directly on the bill text ("extractedPatient").
+                3. Extract the actual hospital or facility name printed directly on the bill text ("extractedFacility").
+                4. Perform a rigorous line-item audit identifying overcharges, markups (>300%), and unbundled services. Calculate the precise dollar amount of potential savings ("estimatedSavings") based strictly on the specific line-item discrepancies and markup corrections found in this bill.
+                5. Provide itemized findings ("findings" array with "category" and "description").
+                6. Draft a formal dispute letter ("disputeLetter") that explicitly uses the extracted patient name and extracted facility name.
+                
+                Output valid JSON only with keys: "extractedTotal", "extractedPatient", "extractedFacility", "findings", "estimatedSavings", "disputeLetter".`
               },
               {
                 role: 'user',
-                content: `Patient Name: ${fullName}\nHospital Facility: ${hospitalName}\n\n--- BILL TEXT START ---\n${fileText.substring(0, 15000)}\n--- BILL TEXT END ---`
+                content: `Form Input Name: ${fullName}\nForm Input Hospital: ${hospitalName}\n\n--- BILL TEXT START ---\n${fileText.substring(0, 15000)}\n--- BILL TEXT END ---`
               }
             ],
             response_format: { type: 'json_object' },
@@ -91,8 +90,10 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
           if (openaiData.choices?.[0]?.message?.content) {
             const parsed = JSON.parse(openaiData.choices[0].message.content);
             if (parsed.extractedTotal) extractedBillAmount = parsed.extractedTotal;
+            if (parsed.extractedPatient) actualPatientName = parsed.extractedPatient;
+            if (parsed.extractedFacility) actualFacilityName = parsed.extractedFacility;
             if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
-            if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
+            if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings; // AI-computed savings from bill audit
             if (parsed.disputeLetter && parsed.disputeLetter.length > 50) disputeLetterDraft = parsed.disputeLetter;
           }
         }
@@ -106,10 +107,10 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
       const leadId = Date.now().toString();
       const leadData = {
         id: leadId,
-        fullName,
+        fullName: actualPatientName, // Save bill-verified patient name
         clientEmail,
         phone,
-        hospitalName,
+        hospitalName: actualFacilityName, // Save bill-verified facility name
         extractedBillAmount,
         fileName,
         fileData,

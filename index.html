@@ -1,55 +1,55 @@
-<script>
-    document.getElementById('auditForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const submitBtn = document.getElementById('submitBtn');
-        const statusMessage = document.getElementById('statusMessage');
-        
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Processing Secure Audit...';
-        statusMessage.textContent = '';
+  <script>
+    document.getElementById('intakeForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const submitButton = document.getElementById('submitBtn');
+      submitButton.disabled = true;
+      submitButton.innerText = 'Analyzing Bill & Uploading...';
 
-        // Gather form fields safely
-        const clientName = document.getElementById('clientName')?.value || '';
-        const clientEmail = document.getElementById('clientEmail')?.value || '';
-        const hospitalName = document.getElementById('hospitalName')?.value || '';
+      try {
+        const formData = new FormData(this);
+        const fileInput = document.querySelector('input[type="file"]');
         
-        // Grab the primary itemized bill file input
-        const fileInput = document.getElementById('documentFile') || document.querySelector('input[type="file"]');
-        
-        if (!fileInput || !fileInput.files[0]) {
-            alert('Please select a file to upload.');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit For Forensic Audit';
-            return;
+        let extractedText = '';
+        if (fileInput && fileInput.files[0]) {
+          const file = fileInput.files[0];
+          extractedText = await file.text().catch(() => ''); 
         }
 
-        const reader = new FileReader();
-        reader.onload = async function(event) {
-            const documentText = event.target.result;
-
-            try {
-                const response = await fetch('/api/submit-intake', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clientName, clientEmail, hospitalName, documentText })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    alert('Success! Document verified and audit pipeline initiated.');
-                    document.getElementById('auditForm').reset();
-                } else {
-                    throw new Error(data.error || 'Failed to process intake.');
-                }
-            } catch (error) {
-                alert('Network error during submission: ' + error.message);
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit For Forensic Audit';
-            }
+        const payload = {
+          fullName: formData.get('fullName'),
+          email: formData.get('email'),
+          phoneNumber: formData.get('phoneNumber'),
+          hospitalName: formData.get('hospitalName'),
+          billAmount: formData.get('billAmount'),
+          documentText: extractedText,
+          fileName: fileInput && fileInput.files[0] ? fileInput.files[0].name : null
         };
 
-        reader.readAsDataURL(fileInput.files[0]);
+        const response = await fetch('/api/submit-intake', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || result.message || 'Submission failed on server.');
+        }
+
+        alert('Audit Pipeline Initiated Successfully! Check your email.');
+        window.location.reload();
+
+      } catch (error) {
+        console.error('Submission Error:', error);
+        alert('Submission error: ' + error.message);
+        submitButton.disabled = false;
+        submitButton.innerText = 'Submit For Free Forensic Audit';
+      }
     });
-</script>
+  </script>
+</body>
+</html>

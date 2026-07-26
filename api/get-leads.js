@@ -1,22 +1,41 @@
-import { kv } from '@vercel/kv';
-
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
 
   try {
-    const leadIds = await kv.smembers('all_leads') || [];
-    let leads = [];
+    const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-    for (const id of leadIds) {
-      const lead = await kv.get(`lead:${id}`);
-      if (lead) leads.push(lead);
+    if (!redisUrl || !redisToken) {
+      return res.status(500).json({ status: 'error', message: 'Database connection variables missing.' });
     }
 
-    // Sort newest first
-    leads.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    const membersRes = await fetch(redisUrl, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(['SMEMBERS', 'all_leads'])
+    });
+    const membersData = await membersRes.json();
+    const leadIds = membersData.result || [];
 
+    let leads = [];
+    for (const id of leadIds) {
+      const leadRes = await fetch(redisUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(['GET', `lead:${id}`])
+      });
+      const leadData = await leadRes.json();
+      if (leadData.result) {
+        try {
+          leads.push(JSON.parse(leadData.result));
+        } catch (e) {}
+      }
+    }
+
+    leads.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
     return res.status(200).json({ status: 'success', leads });
   } catch (error) {
+    console.error('Get Leads Error:', error);
     return res.status(500).json({ status: 'error', message: 'Failed to fetch leads' });
   }
 }

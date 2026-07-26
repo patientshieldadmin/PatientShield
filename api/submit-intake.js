@@ -18,7 +18,6 @@ export default async function handler(req, res) {
     const eobName = body.eobName || 'Not Provided';
     const recordsName = body.recordsName || 'Not Provided';
 
-    // Default robust forensic baseline
     let extractedBillAmount = '$128,450.00';
     let estimatedSavingsValue = '$38,535.00';
     let analysisFindings = [
@@ -57,7 +56,7 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
             messages: [
               {
                 role: 'system',
-                content: 'You are an elite forensic medical bill auditor. Analyze the provided hospital bill text. Output valid JSON only with keys: "extractedTotal" (string with exact dollar sum found in the text), "findings" (array of objects with "category" and "description" detailing specific line items, CPT codes, or markups found in the text), "estimatedSavings" (string with dollar sum), and "disputeLetter" (string containing a thorough, multi-paragraph formal dispute letter incorporating specific charges and findings found in the text).'
+                content: 'You are an elite forensic medical bill auditor. Analyze the provided hospital bill text extracted from the user upload. Output valid JSON only with keys: "extractedTotal" (string with exact dollar sum found in the text), "findings" (array of objects with "category" and "description" detailing specific line items, CPT codes, or markups found in the text), "estimatedSavings" (string with dollar sum), and "disputeLetter" (string containing a thorough, multi-paragraph formal dispute letter incorporating specific charges, patient name, hospital name, and findings found in the text).'
               },
               {
                 role: 'user',
@@ -78,10 +77,15 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
             if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
             if (parsed.disputeLetter && parsed.disputeLetter.length > 50) disputeLetterDraft = parsed.disputeLetter;
           }
+        } else {
+          const errText = await openaiResponse.text();
+          console.error('OpenAI API Error Status:', openaiResponse.status, errText);
         }
       } catch (aiErr) {
-        console.error('AI Processing Error (using robust baseline):', aiErr);
+        console.error('AI Processing Exception:', aiErr);
       }
+    } else {
+      console.warn('Skipping OpenAI: OPENAI_API_KEY is missing or fileText is empty.');
     }
 
     // Save Lead to Upstash Redis Database

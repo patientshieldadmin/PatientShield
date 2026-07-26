@@ -7,26 +7,38 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {};
+    const isPortalUpload = body.isPortalUpload || false;
     const fullName = body.fullName || 'Valued Client';
     const clientEmail = body.email || 'client@thepatientshield.com';
     const hospitalName = body.hospitalName || 'Target Hospital';
-    const rawBillAmount = body.billAmount || '0';
     const phone = body.phone || 'Unspecified';
     const fileName = body.fileName || 'Itemized Bill Uploaded';
+    const fileData = body.fileData || null;
     const eobName = body.eobName || 'Not Provided';
+    const eobData = body.eobData || null;
     const recordsName = body.recordsName || 'Not Provided';
+    const recordsData = body.recordsData || null;
 
-    const numericBill = Number(String(rawBillAmount).replace(/[^0-9.]/g, '')) || 0;
-    const formattedBillAmount = numericBill > 0 ? numericBill.toLocaleString() : rawBillAmount;
+    let extractedBillAmount = isPortalUpload ? 'Existing Case Total' : '$0';
+    let analysisFindings = [];
+    let estimatedSavingsValue = 'Pending Complete Review';
+    let disputeLetterDraft = 'Draft pending complete document verification.';
+    let isAValidMedicalBill = true;
+    let validationErrorMessage = '';
 
-    let analysisFindings = [
-      { category: 'Initial Line-Item Ingestion', description: `Successfully received Itemized Bill (${fileName}) for ${hospitalName} totaling $${formattedBillAmount}. Queued for clinical chargemaster benchmark comparison.` }
-    ];
-    let estimatedSavingsValue = 'Estimated 35% - 55% Reduction Range';
-    let disputeLetterDraft = 'Formal dispute letter generation pending complete documentation review.';
-
-    if (process.env.OPENAI_API_KEY) {
+    if (!isPortalUpload && process.env.OPENAI_API_KEY && fileData) {
       try {
+        let userContent = [
+          {
+            type: 'text',
+            text: `Hospital Name: ${hospitalName}\nAnalyze this uploaded document. First, check if this document is a valid hospital itemized bill, UB-04, or medical billing statement. If it is NOT a medical bill or billing document, set "isValidBill": false and provide an explanation. If it IS valid, extract the exact total bill amount, identify line-item markup errors, unbundled charges, or phantom items, and output a JSON object.`
+          },
+          {
+            type: 'image_url',
+            image_url: { url: fileData }
+          }
+        ];
+
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -38,14 +50,15 @@ export default async function handler(req, res) {
             messages: [
               {
                 role: 'system',
-                content: 'You are an elite medical bill forensic auditor and nurse advocate specializing in high-acuity inpatient and NICU stays. Analyze the intake details to generate forensic audit findings, estimated savings, and a formal Hospital Billing Dispute & Appeal Letter citing chargemaster markups and unbundling rules. Return a JSON object strictly with: { "findings": [{ "category": string, "description": string }], "estimatedSavings": string, "disputeLetter": string }'
+                content: 'You are an elite medical bill forensic auditor. Validate whether the uploaded document is a legitimate hospital bill. Return a JSON object strictly with: { "isValidBill": boolean, "invalidReason": string, "extractedTotal": string, "findings": [{ "category": string, "description": string }], "estimatedSavings": string, "disputeLetter": string }'
               },
               {
                 role: 'user',
-                content: `Hospital: ${hospitalName}\nTotal Bill Amount: $${formattedBillAmount}\nItemized Bill: ${fileName}\nEOB: ${eobName}\nMedical Records: ${recordsName}`
+                content: userContent
               }
             ],
-            response_format: { type: 'json_object' }
+            response_format: { type: 'json_object' },
+            max_tokens: 1500
           })
         });
 
@@ -53,52 +66,59 @@ export default async function handler(req, res) {
           const openaiData = await openaiResponse.json();
           if (openaiData.choices?.[0]?.message?.content) {
             const parsed = JSON.parse(openaiData.choices[0].message.content);
-            if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
-            if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
-            if (parsed.disputeLetter) disputeLetterDraft = parsed.disputeLetter;
+            if (parsed.isValidBill === false) {
+              isAValidMedicalBill = false;
+              validationErrorMessage = parsed.invalidReason || 'The uploaded document does not appear to be a valid hospital itemized bill.';
+            } else {
+              if (parsed.extractedTotal) extractedBillAmount = parsed.extractedTotal;
+              if (parsed.findings) analysisFindings = parsed.findings;
+              if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
+              if (parsed.disputeLetter) disputeLetterDraft = parsed.disputeLetter;
+            }
           }
         }
       } catch (aiErr) {
-        console.error('AI Forensic Analysis Notice:', aiErr);
+        console.error('AI Validation Error:', aiErr);
       }
     }
 
+    if (!isPortalUpload && !isAValidMedicalBill) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: `Document Validation Failed: ${validationErrorMessage} Please upload a valid itemized hospital bill.` 
+      });
+    }
+
+    const missingEobOrRecords = (eobName === 'Not Provided' || recordsName === 'Not Provided');
+    const securePortalUrl = `https://www.thepatientshield.com/?case=active&email=${encodeURIComponent(clientEmail)}`;
+
     if (process.env.RESEND_API_KEY) {
+      const subjectPrefix = isPortalUpload ? '[SUPPLEMENTAL DOCUMENTS UPLOADED]' : '[VERIFIED AUDIT LEAD]';
+      
       const clientHtml = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-          <h2 style="color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 8px;">PatientShield Forensic Audit Ingestion</h2>
+          <h2 style="color: #0056b3; border-bottom: 2px solid #0056b3; padding-bottom: 8px;">${isPortalUpload ? 'Secure Portal Upload Confirmation' : 'PatientShield Secure Audit Ingestion'}</h2>
           <p>Hello <strong>${fullName}</strong>,</p>
-          <p>We have securely received your itemized bill for <strong>${hospitalName}</strong>. Our automated forensic audit engine has completed an initial analysis of your submitted account against regional healthcare chargemaster baselines.</p>
+          <p>${isPortalUpload ? 'We have successfully received your supplemental documents through our secure portal and added them to your active case file.' : `We have securely scanned and analyzed your itemized bill for <strong>${hospitalName}</strong> using our AI forensic audit engine.`}</p>
 
-          <h3 style="color: #333; margin-top: 20px;">Intake & Estimated Savings Summary</h3>
+          <h3 style="color: #333; margin-top: 20px;">Case Summary</h3>
           <ul style="line-height: 1.6; background: #f9f9f9; padding: 15px; border-radius: 5px; list-style-type: none;">
             <li><strong>Hospital:</strong> ${hospitalName}</li>
-            <li><strong>Submitted Bill Amount:</strong> $${formattedBillAmount}</li>
-            <li><strong>Itemized Bill:</strong> ✅ Received (${fileName})</li>
-            <li><strong>EOB / Insurance Statement:</strong> ${eobName !== 'Not Provided' ? '✅ Received' : '⚠️ Not Provided'}</li>
-            <li><strong>Medical Records / MAR:</strong> ${recordsName !== 'Not Provided' ? '✅ Received' : '⚠️ Not Provided'}</li>
-            <li><strong>Estimated Potential Savings (Preliminary Estimate):</strong> <span style="color: #0284c7; font-weight: bold;">${estimatedSavingsValue}</span></li>
+            <li><strong>EOB / Insurance Statement:</strong> ${eobName !== 'Not Provided' ? '✅ Received (' + eobName + ')' : '⚠️ Missing'}</li>
+            <li><strong>Medical Records / MAR:</strong> ${recordsName !== 'Not Provided' ? '✅ Received (' + recordsName + ')' : '⚠️ Missing'}</li>
           </ul>
-          <p style="font-size: 11px; color: #64748b; font-style: italic;">*Note: This figure is an initial AI-generated estimate based on available documentation and is subject to final clinical nurse review and chargemaster verification.</p>
 
-          ${eobName === 'Not Provided' || recordsName === 'Not Provided' ? `
-            <h3 style="color: #d97706; margin-top: 20px;">Action Required: Missing Documentation</h3>
-            <p style="font-size: 14px; color: #475569;">To perform an absolute deep-dive validation on complex items (such as pharmaceutical dosing, infusion timestamps, or per diem levels), we recommend uploading your missing documents.</p>
-            
+          ${!isPortalUpload && missingEobOrRecords ? `
             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 5px; margin-top: 15px;">
-              <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 14px;">🔒 How to Upload Securely & HIPAA-Compliant</h4>
-              <p style="font-size: 13px; color: #15803d; margin: 0; line-height: 1.5;">
-                To ensure full HIPAA compliance and protect your sensitive health information, please <strong>reply directly to this secure email</strong> with your additional documents attached. Our encrypted ingestion pipeline will automatically route them to your secure file vault.
+              <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 14px;">🔒 Secure HIPAA Upload Required for Missing Documents</h4>
+              <p style="font-size: 13px; color: #15803d; margin: 0 0 12px 0; line-height: 1.5;">
+                To ensure absolute HIPAA compliance and protect your privacy, please use our encrypted secure portal link below to upload your missing EOB or Medical Records.
               </p>
+              <a href="${securePortalUrl}" style="background: #16a34a; color: white; padding: 10px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 13px; display: inline-block;">Access Secure Upload Portal</a>
             </div>
           ` : ''}
 
-          <h3 style="color: #333; margin-top: 20px;">Initial Forensic Breakdown</h3>
-          <div style="background: #f1f5f9; padding: 15px; border-radius: 5px;">
-            ${analysisFindings.map(f => `<p><strong>${f.category}:</strong> ${f.description}</p>`).join('')}
-          </div>
-
-          <p style="margin-top: 20px;"><strong>Next Steps:</strong> Our clinical advocacy team is reviewing these findings to construct your formal hospital dispute packet.</p>
+          <p style="margin-top: 20px;"><strong>Next Steps:</strong> Our clinical advocacy team is reviewing your complete case file to finalize your hospital dispute packet.</p>
 
           <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;" />
           <p style="font-size: 12px; color: #777; text-align: center;">PatientShield Automated Billing Advocacy Platform</p>
@@ -111,14 +131,14 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           from: 'PatientShield <audit@thepatientshield.com>',
           to: [clientEmail],
-          subject: `Your PatientShield Audit Estimate & Next Steps: ${hospitalName}`,
+          subject: isPortalUpload ? `Supplemental Documents Received: ${hospitalName}` : `Your PatientShield Secure Audit Estimate: ${hospitalName}`,
           html: clientHtml,
         }),
       });
 
       const adminHtml = `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-          <h2 style="color: #b91c1c; border-bottom: 2px solid #b91c1c; padding-bottom: 8px;">New Lead Forensic Breakdown & Dispute Draft</h2>
+          <h2 style="color: #b91c1c; border-bottom: 2px solid #b91c1c; padding-bottom: 8px;">${isPortalUpload ? 'Supplemental Documents Added to Case' : 'New Verified Lead & AI Dispute Draft'}</h2>
           
           <h3 style="color: #333;">Client Contact Info</h3>
           <ul style="line-height: 1.6; background: #fef2f2; padding: 15px; border-radius: 5px; list-style-type: none;">
@@ -126,22 +146,23 @@ export default async function handler(req, res) {
             <li><strong>Email:</strong> ${clientEmail}</li>
             <li><strong>Phone:</strong> ${phone}</li>
             <li><strong>Hospital:</strong> ${hospitalName}</li>
-            <li><strong>Submitted Bill Amount:</strong> <span style="color: #b91c1c; font-weight: bold;">$${formattedBillAmount}</span></li>
-            <li><strong>Itemized Bill:</strong> ${fileName}</li>
-            <li><strong>EOB:</strong> ${eobName}</li>
-            <li><strong>Medical Records:</strong> ${recordsName}</li>
+            <li><strong>Extracted Bill Total:</strong> <span style="color: #b91c1c; font-weight: bold;">${extractedBillAmount}</span></li>
+            <li><strong>EOB Uploaded:</strong> ${eobName}</li>
+            <li><strong>Medical Records Uploaded:</strong> ${recordsName}</li>
           </ul>
 
-          <h3 style="color: #333;">AI Forensic Findings</h3>
-          <p><strong>Estimated Savings Range:</strong> ${estimatedSavingsValue}</p>
-          <div style="background: #f1f5f9; padding: 15px; border-radius: 5px;">
-            ${analysisFindings.map(f => `<p><strong>${f.category}:</strong> ${f.description}</p>`).join('')}
-          </div>
+          ${!isPortalUpload ? `
+            <h3 style="color: #333;">AI Document Findings</h3>
+            <p><strong>Estimated Savings Range:</strong> ${estimatedSavingsValue}</p>
+            <div style="background: #f1f5f9; padding: 15px; border-radius: 5px;">
+              ${analysisFindings.length > 0 ? analysisFindings.map(f => `<p><strong>${f.category}:</strong> ${f.description}</p>`).join('') : '<p>Pending further document review.</p>'}
+            </div>
 
-          <h3 style="color: #333; margin-top: 20px;">Generated Hospital Dispute Letter Draft</h3>
-          <div style="background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-size: 13px; color: #334155;">
-            ${disputeLetterDraft}
-          </div>
+            <h3 style="color: #333; margin-top: 20px;">Generated Hospital Dispute Letter Draft</h3>
+            <div style="background: #fff; border: 1px solid #cbd5e1; padding: 15px; border-radius: 5px; white-space: pre-wrap; font-size: 13px; color: #334155;">
+              ${disputeLetterDraft}
+            </div>
+          ` : '<p style="color: #166534; font-weight: bold;">Client has uploaded missing documents via the secure portal. Review case file for complete packet assembly.</p>'}
         </div>
       `;
 
@@ -151,15 +172,15 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           from: 'PatientShield <audit@thepatientshield.com>',
           to: ['Admin@thepatientshield.com'],
-          subject: `[FORENSIC AUDIT & LETTER] ${fullName} - ${hospitalName} ($${formattedBillAmount})`,
+          subject: `${subjectPrefix} ${fullName} - ${hospitalName}`,
           html: adminHtml,
         }),
       });
     }
 
-    return res.status(200).json({ status: 'success', message: 'Intake analyzed and separated emails dispatched successfully.' });
+    return res.status(200).json({ status: 'success', message: 'Documents processed securely.' });
   } catch (error) {
     console.error('API Error:', error);
-    return res.status(500).json({ status: 'error', message: 'Internal server error during processing.' });
+    return res.status(500).json({ status: 'error', message: 'Internal server error during document processing.' });
   }
 }

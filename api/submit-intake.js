@@ -1,3 +1,5 @@
+export const maxDuration = 60;
+
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
 
@@ -18,8 +20,12 @@ export default async function handler(req, res) {
     const eobName = body.eobName || 'Not Provided';
     const recordsName = body.recordsName || 'Not Provided';
 
-    // 1. Robust local regex baseline extraction as a fail-safe
-    let extractedBillAmount = '$15,450.00';     if (fileText) {       const totalMatch = fileText.match(/(?:Total Balance\vert{}Total Charges\vert{}Total Amount\vert{}Total Due\vert{}Total)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})/i) \vert{}\vert{} fileText.match(/\$([\d,]+\.\d{2})/);       if (totalMatch && totalMatch[1]) {         extractedBillAmount = `$${totalMatch[1]}`;
+    // 1. Precise local baseline extraction
+    let extractedBillAmount = '$15,450.00';
+    if (fileText) {
+      const totalMatch = fileText.match(/(?:Total Balance|Total Charges|Total Amount|Total Due|Total)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})/i) || fileText.match(/\$([\d,]+\.\d{2})/);
+      if (totalMatch && totalMatch[1]) {
+        extractedBillAmount = `$${totalMatch[1]}`;
       } else {
         const amounts = fileText.match(/\b\d{1,3}(?:,\d{3})+\.\d{2}\b/g);
         if (amounts && amounts.length > 0) {
@@ -34,7 +40,7 @@ export default async function handler(req, res) {
     let actualFacilityName = hospitalName;
 
     let analysisFindings = [
-      { category: 'Chargemaster Markup & Room Rate Inflation', description: `Accommodation and ancillary service charges submitted exceed regional Medicare fair-market reimbursement benchmarks.` },
+      { category: 'Chargemaster Markup & Room Rate Inflation', description: `Accommodation and ancillary service charges exceed regional Medicare fair-market reimbursement benchmarks.` },
       { category: 'Unbundled Ancillary CPT Codes', description: 'Diagnostic and therapeutic services billed separately instead of standard bundled package rates.' }
     ];
 
@@ -51,7 +57,7 @@ We hereby formally dispute the excessive, inflated, and unbundled charges itemiz
 
 Please provide itemized source verification, cost-to-charge crosswalk documentation, and adjusted billing within 30 days.`;
 
-    // 2. Elite Forensic AI Audit Execution with strict JSON parsing & markdown sanitization
+    // 2. Fast, optimized OpenAI execution with strict token limits to prevent timeouts
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -65,25 +71,24 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
             messages: [
               {
                 role: 'system',
-                content: `You are an elite forensic medical bill auditor, technical strategist, and clinical billing compliance expert specializing in high-acuity, catastrophic inpatient hospital stays (NICU, ICU, and complex multi-account bills). 
-                
-                Meticulously analyze the provided raw text of the hospital bill. You must execute and extract the following:
-                1. "extractedTotal": The exact gross total bill or balance amount found on the document (formatted as currency, e.g. "$639,583.00").
-                2. "extractedPatient": The actual patient or guarantor name printed directly on the bill text. Do not use placeholder form input names if a real name appears on the document.
-                3. "extractedFacility": The actual hospital or facility name printed directly on the bill text. Do not use shorthand form inputs if the official facility name is on the document.
-                4. "findings": An array of objects with "category" and "description" detailing specific line-item billing errors, chargemaster markups, unbundled CPT/HCPCS codes, duplicate charges, or room/board transfer discrepancies found in the text.
-                5. "estimatedSavings": The precise dollar amount of potential savings derived strictly from the sum of the specific line-item discrepancies and markup corrections identified in this audit. Base this entirely on your audit findings from the bill text.
-                6. "disputeLetter": A comprehensive, professional, compliance-ready hospital dispute letter that explicitly incorporates the extracted patient name, extracted facility name, extracted total, and specific line-item findings with regulatory citations.
+                content: `You are an elite forensic medical bill auditor. Analyze the provided hospital bill text. 
+                Extract:
+                1. "extractedTotal": Exact gross total balance as a currency string.
+                2. "extractedPatient": Actual patient/guarantor name from the bill text.
+                3. "extractedFacility": Actual hospital facility name from the bill text.
+                4. "findings": Array of objects with "category" and "description" detailing specific line-item markups or unbundled codes.
+                5. "estimatedSavings": Precise dollar amount of potential savings based strictly on the bill text markup corrections.
+                6. "disputeLetter": A formal dispute letter using the extracted patient name, facility, and total.
 
-                Return ONLY valid JSON. Do not wrap the JSON in markdown code blocks like \`\`\`json. Output raw JSON object with keys: "extractedTotal", "extractedPatient", "extractedFacility", "findings", "estimatedSavings", "disputeLetter".`
+                Return ONLY raw JSON with keys: "extractedTotal", "extractedPatient", "extractedFacility", "findings", "estimatedSavings", "disputeLetter". Do not use markdown wrappers.`
               },
               {
                 role: 'user',
-                content: `User Form Submitted Name: ${fullName}\nUser Form Submitted Hospital: ${hospitalName}\n\n--- RAW HOSPITAL BILL TEXT START ---\n${fileText.substring(0, 15000)}\n--- RAW HOSPITAL BILL TEXT END ---`
+                content: `Form Name: ${fullName}\nForm Hospital: ${hospitalName}\n\n--- BILL TEXT ---\n${fileText.substring(0, 8000)}`
               }
             ],
             response_format: { type: 'json_object' },
-            max_tokens: 4000,
+            max_tokens: 1500,
             temperature: 0.1
           })
         });
@@ -92,7 +97,6 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
           const openaiData = await openaiResponse.json();
           if (openaiData.choices?.[0]?.message?.content) {
             let rawContent = openaiData.choices[0].message.content.trim();
-            // Sanitize potential markdown wrappers just in case
             rawContent = rawContent.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '');
             
             const parsed = JSON.parse(rawContent);
@@ -103,15 +107,13 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
             if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
             if (parsed.disputeLetter && parsed.disputeLetter.length > 50) disputeLetterDraft = parsed.disputeLetter;
           }
-        } else {
-          console.error('OpenAI Error:', await openaiResponse.text());
         }
       } catch (aiErr) {
-        console.error('AI Forensic Execution Exception:', aiErr);
+        console.error('AI Processing Error (using baseline):', aiErr);
       }
     }
 
-    // Save Lead to Upstash Redis Database
+    // 3. Save Lead to Upstash Redis Database
     try {
       const leadId = Date.now().toString();
       const leadData = {
@@ -150,9 +152,9 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
       console.error('Database Storage Error:', dbErr);
     }
 
-    return res.status(200).json({ status: 'success', message: 'Forensic audit completed successfully.' });
+    return res.status(200).json({ status: 'success', message: 'Documents processed successfully.' });
   } catch (error) {
     console.error('API Error:', error);
-    return res.status(500).json({ status: 'error', message: 'Internal server error during forensic processing.' });
+    return res.status(500).json({ status: 'error', message: 'Internal server error during processing.' });
   }
 }

@@ -1,5 +1,3 @@
-import { kv } from '@vercel/kv';
-
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
 
@@ -89,6 +87,7 @@ export default async function handler(req, res) {
       });
     }
 
+    // Save Lead to Upstash Redis directly via REST
     try {
       const leadId = Date.now().toString();
       const leadData = {
@@ -105,10 +104,24 @@ export default async function handler(req, res) {
         disputeLetterDraft,
         submittedAt: new Date().toISOString()
       };
-      await kv.set(`lead:${leadId}`, leadData);
-      await kv.sadd('all_leads', leadId);
-    } catch (kvErr) {
-      console.error('Vercel KV Storage Error:', kvErr);
+
+      const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+      const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+      if (redisUrl && redisToken) {
+        await fetch(redisUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['SET', `lead:${leadId}`, JSON.stringify(leadData)])
+        });
+        await fetch(redisUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['SADD', 'all_leads', leadId])
+        });
+      }
+    } catch (dbErr) {
+      console.error('Database Storage Error:', dbErr);
     }
 
     const missingEobOrRecords = (eobName === 'Not Provided' || recordsName === 'Not Provided');

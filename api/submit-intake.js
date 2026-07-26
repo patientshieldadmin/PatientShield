@@ -14,42 +14,19 @@ export default async function handler(req, res) {
     const phone = body.phone || 'Unspecified';
     const fileName = body.fileName || 'Itemized Bill Uploaded';
     const fileData = body.fileData || null;
+    const fileText = body.fileText || '';
     const eobName = body.eobName || 'Not Provided';
     const recordsName = body.recordsName || 'Not Provided';
 
-    // Extract raw text streams from uploaded PDF or document Base64 data
-    let extractedDocumentText = '';
-    if (fileData && fileData.includes('base64,')) {
-      try {
-        const base64Part = fileData.split('base64,')[1];
-        const decodedBuffer = Buffer.from(base64Part, 'base64');
-        const rawString = decodedBuffer.toString('utf8');
-        extractedDocumentText = rawString.replace(/[^\x20-\x7E\r\n]/g, ' ').substring(0, 15000);
-      } catch (err) {
-        console.error('File text extraction error:', err);
-      }
-    }
-
-    let extractedBillAmount = '$612,180.10';
-    let estimatedSavingsValue = '$183,654.00';
+    let extractedBillAmount = '$12,450.00';
+    let estimatedSavingsValue = '$3,735.00';
     let analysisFindings = [
-      { category: 'Chargemaster Markup & Room Rate Inflation', description: `Accommodation and ancillary service charges submitted in ${fileName} exceed regional Medicare fair-market reimbursement benchmarks.` },
-      { category: 'Unbundled Ancillary CPT Codes', description: 'Diagnostic and therapeutic services billed separately instead of standard bundled package rates.' }
+      { category: 'Chargemaster Markup Analysis', description: `Preliminary audit review for ${hospitalName}.` }
     ];
-    let disputeLetterDraft = `[HOSPITAL BILLING DISPUTE & ITEMIZED AUDIT REQUEST]
+    let disputeLetterDraft = `[HOSPITAL BILLING DISPUTE & ITEMIZED AUDIT REQUEST]\n\nDear Billing Compliance Department,\n\nPatient Name: ${fullName}\nFacility: ${hospitalName}\n\nWe formally dispute charges itemized on the statement.`;
 
-Dear Billing Compliance Department,
-
-Patient Name: ${fullName}
-Facility: ${hospitalName}
-Reference Document: ${fileName}
-
-We hereby formally dispute the excessive, inflated, and unbundled charges itemized on the recent billing statement. In accordance with federal transparency mandates, the No Surprises Act, and healthcare itemized audit guidelines, we require immediate itemized source verification, CPT/HCPCS code validation, and a complete chargemaster cost-to-charge crosswalk.
-
-Please provide itemized source verification and adjusted billing within 30 days.`;
-
-    // Dynamic OpenAI Forensic Audit using the actual extracted document text
-    if (!isPortalUpload && process.env.OPENAI_API_KEY) {
+    // Send actual extracted bill text to OpenAI for deep forensic review
+    if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -62,11 +39,11 @@ Please provide itemized source verification and adjusted billing within 30 days.
             messages: [
               {
                 role: 'system',
-                content: 'You are an elite forensic medical bill auditor and healthcare billing compliance specialist. Analyze the provided document text extracted from the user file upload. Output valid JSON only with keys: "extractedTotal" (string with exact dollar sign found in the text), "findings" (array of objects with "category" and "description" strings based on the actual line items in the text), "estimatedSavings" (string with dollar sign, approx 30% of total), and "disputeLetter" (string containing a formal plain-text hospital dispute letter referencing the exact patient name, facility, account numbers, and charges found in the text without any code brackets or HTML).'
+                content: 'You are an elite forensic medical bill auditor. You must analyze the actual text content of the hospital bill provided below. Output valid JSON only with keys: "extractedTotal" (string with exact dollar sum found in the bill text), "findings" (array of objects with "category" and "description" detailing specific line items, CPT codes, or markups found in the text), "estimatedSavings" (string with dollar sum), and "disputeLetter" (string containing a formal plain-text dispute letter incorporating the specific charges and findings found in the text).'
               },
               {
                 role: 'user',
-                content: `Client Input Name: ${fullName}\nProvided Hospital: ${hospitalName}\nFile Name: ${fileName}\n\nExtracted Document Text Contents:\n${extractedDocumentText || 'No text extracted, analyze based on standard medical bill formatting.'}`
+                content: `Patient Name: ${fullName}\nHospital Facility: ${hospitalName}\n\n--- ACTUAL UPLOADED BILL TEXT START ---\n${fileText.substring(0, 12000)}\n--- ACTUAL UPLOADED BILL TEXT END ---`
               }
             ],
             response_format: { type: 'json_object' },
@@ -90,38 +67,42 @@ Please provide itemized source verification and adjusted billing within 30 days.
     }
 
     // Save Lead to Upstash Redis Database
-    const leadId = Date.now().toString();
-    const leadData = {
-      id: leadId,
-      fullName,
-      clientEmail,
-      phone,
-      hospitalName,
-      extractedBillAmount,
-      fileName,
-      fileData,
-      eobName,
-      recordsName,
-      analysisFindings,
-      estimatedSavings: estimatedSavingsValue,
-      disputeLetterDraft,
-      submittedAt: new Date().toISOString()
-    };
+    try {
+      const leadId = Date.now().toString();
+      const leadData = {
+        id: leadId,
+        fullName,
+        clientEmail,
+        phone,
+        hospitalName,
+        extractedBillAmount,
+        fileName,
+        fileData,
+        eobName,
+        recordsName,
+        analysisFindings,
+        estimatedSavings: estimatedSavingsValue,
+        disputeLetterDraft,
+        submittedAt: new Date().toISOString()
+      };
 
-    const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
-    const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+      const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
+      const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-    if (redisUrl && redisToken) {
-      await fetch(redisUrl, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(['SET', `lead:${leadId}`, JSON.stringify(leadData)])
-      });
-      await fetch(redisUrl, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(['SADD', 'all_leads', leadId])
-      });
+      if (redisUrl && redisToken) {
+        await fetch(redisUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['SET', `lead:${leadId}`, JSON.stringify(leadData)])
+        });
+        await fetch(redisUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['SADD', 'all_leads', leadId])
+        });
+      }
+    } catch (dbErr) {
+      console.error('Database Storage Error:', dbErr);
     }
 
     return res.status(200).json({ status: 'success', message: 'Documents processed successfully.' });

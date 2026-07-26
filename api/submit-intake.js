@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. OpenAI Universal Forensic Audit Pipeline with Fortified Anti-False-Positive Rules
+    // 2. OpenAI Universal Forensic Audit Pipeline with Built-In Self-Audit & Self-Correction Loop
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -53,21 +53,23 @@ export default async function handler(req, res) {
             messages: [
               {
                 role: 'system',
-                content: `You are an elite forensic medical bill auditor and healthcare compliance expert specializing in federal transparency mandates, the No Surprises Act, unbundling detection, and chargemaster cost-to-charge crosswalks.
+                content: `You are an elite forensic medical bill auditor and healthcare compliance expert specializing in federal transparency mandates and unbundling detection.
 
-                Analyze the provided raw medical bill text meticulously, regardless of medical specialty, facility type, or department. You must strictly adhere to these anti-false-positive rules:
-                1. ABSOLUTE PROHIBITION: NEVER flag room and board, daily NICU/ICU room charges, daily therapy, or daily professional care codes as duplicates simply because they appear multiple times in the document. If they occur on DIFFERENT calendar dates, they are valid daily occupancy charges.
-                2. ONLY flag true administrative duplicate line items where the EXACT same procedure code, description, dollar amount, and calendar date appear more than once within the same 24-hour period, or true redundant panel over-clustering.
-                3. Calculate "estimatedSavings" exclusively from verified, non-daily line-item errors, true same-day duplicates, or actual markup anomalies.
+                Execute a rigorous 2-step internal self-audit before finalizing your output:
+                - STEP 1 (Draft Analysis): Scan the raw bill text for potential duplicate line items, over-clustered panels, or billing anomalies.
+                - STEP 2 (Self-Correction & Veto Filtering): Review every preliminary finding from Step 1 against these strict veto rules:
+                  1. VETO RULE A: Discard any finding flagging room and board, daily bed charges, accommodation revenue codes (Rev Codes 0100-0199), or daily care codes that occur on different calendar dates. Sequential daily charges are valid.
+                  2. VETO RULE B: Discard any "duplicate" where the calendar dates differ. True duplicates must share the exact same procedure code, description, dollar amount, and calendar date within the same 24-hour period.
+                - STEP 3 (Final Compilation): Retain only findings that survive Step 2. Calculate "estimatedSavings" exclusively from these verified surviving errors.
 
                 Extract and return ONLY a valid JSON object with these exact keys:
                 - "extractedTotal": Exact gross total balance as a currency string (e.g., "$125,430.00").
                 - "extractedPatient": The actual patient or guarantor name printed on the bill text. Do not use form inputs.
                 - "extractedFacility": The actual hospital or medical facility name printed on the bill text. Do not use form inputs.
-                - "findings": Array of objects with "category" and "description" detailing verified line-item errors or true same-day duplicates only.
-                - "estimatedSavings": Precise dollar amount of potential savings calculated exclusively from actual verified billing errors (exclude daily room charges).
+                - "findings": Array of objects with "category" and "description" containing ONLY self-audited, surviving verified errors.
+                - "estimatedSavings": Precise dollar amount of potential savings calculated exclusively from surviving verified errors.
                 - "missingInfoRequests": Array of strings telling the customer what additional documents to gather for a deeper cross-check (e.g., "Request matching Explanation of Benefits (EOB) from your insurance provider", "Gather itemized pharmacy or supply logs for audit verification").
-                - "disputeLetter": A formal dispute letter using the extracted patient name, extracted facility, extracted total, and verified findings.
+                - "disputeLetter": A formal dispute letter using the extracted patient name, extracted facility, extracted total, and surviving verified findings.
                 
                 Do not wrap the JSON in markdown code blocks.`
               },
@@ -99,7 +101,7 @@ export default async function handler(req, res) {
             if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
             if (parsed.missingInfoRequests && parsed.missingInfoRequests.length > 0) missingInfoRequests = parsed.missingInfoRequests;
             
-            // Savings formatting snippet integrated and safely handled
+            // Savings formatting snippet integrated safely
             if (parsed.estimatedSavings) {
               let formattedSavings = parsed.estimatedSavings;
               if (!isNaN(parseFloat(formattedSavings))) {
@@ -195,7 +197,6 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
       if (resendApiKey && clientEmail) {
         const dashboardUrl = `[https://thepatientshield.com/dashboard?id=$](https://thepatientshield.com/dashboard?id=$){leadId}`;
         
-        // Build missing info checklist html if any
         let missingHtml = '';
         if (eobName === 'Not Provided' || recordsName === 'Not Provided' || missingInfoRequests.length > 0) {
           missingHtml = `

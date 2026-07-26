@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     let actualFacilityName = hospitalName;
     let analysisFindings = [];
     let disputeLetterDraft = '';
+    let missingInfoRequests = [];
     let aiErrorLog = null;
 
     // 1. Local fallback regex parsing for total amount
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. OpenAI Deep Forensic Audit
+    // 2. OpenAI Universal Forensic Audit Pipeline
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -52,13 +53,20 @@ export default async function handler(req, res) {
             messages: [
               {
                 role: 'system',
-                content: `You are an elite forensic medical bill auditor specializing in catastrophic inpatient stays. Analyze the provided raw text of the hospital bill.
+                content: `You are an elite forensic medical bill auditor and healthcare compliance expert specializing in federal transparency mandates, the No Surprises Act, unbundling detection, and chargemaster cost-to-charge crosswalks. 
+
+                Analyze the provided raw medical bill text meticulously, regardless of medical specialty, facility type, or department. Follow these strict auditing rules:
+                1. DO NOT flag sequential daily room/board or daily service charges (such as daily room rates billed on different calendar dates) as duplicates. Room or daily service charges on different days are valid.
+                2. ONLY flag true administrative duplicate line items (same code, same description, same day, exact amount) and suspicious over-clustering (e.g., redundant panel testing or unbundled components in a single 24-hour window).
+                3. Calculate "estimatedSavings" strictly from verified line-item errors, duplicate entries, and redundant services found in the text.
+
                 Extract and return ONLY a valid JSON object with these exact keys:
-                - "extractedTotal": Exact gross total balance as a currency string (e.g., "$639,583.00").
+                - "extractedTotal": Exact gross total balance as a currency string (e.g., "$125,430.00").
                 - "extractedPatient": The actual patient or guarantor name printed on the bill text. Do not use form inputs.
-                - "extractedFacility": The actual hospital or facility name printed on the bill text. Do not use form inputs.
-                - "findings": Array of objects with "category" and "description" detailing specific markups or unbundled codes found in the text.
-                - "estimatedSavings": Precise dollar amount of potential savings calculated from the specific markup errors found.
+                - "extractedFacility": The actual hospital or medical facility name printed on the bill text. Do not use form inputs.
+                - "findings": Array of objects with "category" and "description" detailing specific markups, unbundled codes, or confirmed duplicate line items.
+                - "estimatedSavings": Precise dollar amount of potential savings calculated exclusively from actual verified billing errors.
+                - "missingInfoRequests": Array of strings telling the customer what additional documents to gather for a deeper cross-check (e.g., "Request matching Explanation of Benefits (EOB) from your insurance provider", "Gather itemized pharmacy or supply logs for audit verification").
                 - "disputeLetter": A formal dispute letter using the extracted patient name, extracted facility, extracted total, and findings.
                 
                 Do not wrap the JSON in markdown code blocks.`
@@ -89,8 +97,9 @@ export default async function handler(req, res) {
               actualFacilityName = parsed.extractedFacility.trim();
             }
             if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
+            if (parsed.missingInfoRequests && parsed.missingInfoRequests.length > 0) missingInfoRequests = parsed.missingInfoRequests;
             
-            // Integrated your savings formatting snippet here
+            // Savings formatting logic applied universally
             if (parsed.estimatedSavings) {
               let formattedSavings = parsed.estimatedSavings;
               if (!isNaN(parseFloat(formattedSavings))) {
@@ -115,7 +124,7 @@ export default async function handler(req, res) {
       aiErrorLog = 'Extracted file text length is 0 (PDF text layer could not be read).';
     }
 
-    // If OpenAI failed, inject the exact reason into the dashboard findings so you see it immediately
+    // If OpenAI failed, inject the exact reason into findings
     if (aiErrorLog) {
       analysisFindings = [
         { category: '⚠️ AI Audit Diagnostic Error', description: aiErrorLog },
@@ -154,6 +163,7 @@ Please provide itemized source verification, cost-to-charge crosswalk documentat
         eobName,
         recordsName,
         analysisFindings,
+        missingInfoRequests,
         estimatedSavings: estimatedSavingsValue,
         disputeLetterDraft,
         submittedAt: new Date().toISOString()

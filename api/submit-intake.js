@@ -1,3 +1,5 @@
+import { kv } from '@vercel/kv';
+
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
 
@@ -15,9 +17,7 @@ export default async function handler(req, res) {
     const fileName = body.fileName || 'Itemized Bill Uploaded';
     const fileData = body.fileData || null;
     const eobName = body.eobName || 'Not Provided';
-    const eobData = body.eobData || null;
     const recordsName = body.recordsName || 'Not Provided';
-    const recordsData = body.recordsData || null;
 
     let extractedBillAmount = isPortalUpload ? 'Existing Case Total' : '$0';
     let analysisFindings = [];
@@ -87,6 +87,28 @@ export default async function handler(req, res) {
         status: 'error', 
         message: `Document Validation Failed: ${validationErrorMessage} Please upload a valid itemized hospital bill.` 
       });
+    }
+
+    try {
+      const leadId = Date.now().toString();
+      const leadData = {
+        id: leadId,
+        fullName,
+        clientEmail,
+        phone,
+        hospitalName,
+        extractedBillAmount,
+        fileName,
+        eobName,
+        recordsName,
+        analysisFindings,
+        disputeLetterDraft,
+        submittedAt: new Date().toISOString()
+      };
+      await kv.set(`lead:${leadId}`, leadData);
+      await kv.sadd('all_leads', leadId);
+    } catch (kvErr) {
+      console.error('Vercel KV Storage Error:', kvErr);
     }
 
     const missingEobOrRecords = (eobName === 'Not Provided' || recordsName === 'Not Provided');

@@ -89,7 +89,16 @@ export default async function handler(req, res) {
               actualFacilityName = parsed.extractedFacility.trim();
             }
             if (parsed.findings && parsed.findings.length > 0) analysisFindings = parsed.findings;
-            if (parsed.estimatedSavings) estimatedSavingsValue = parsed.estimatedSavings;
+            
+            // Integrated your savings formatting snippet here
+            if (parsed.estimatedSavings) {
+              let formattedSavings = parsed.estimatedSavings;
+              if (!isNaN(parseFloat(formattedSavings))) {
+                formattedSavings = `$${parseFloat(formattedSavings).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              }
+              estimatedSavingsValue = formattedSavings;
+            }
+
             if (parsed.disputeLetter && parsed.disputeLetter.length > 50) disputeLetterDraft = parsed.disputeLetter;
           }
         } else {

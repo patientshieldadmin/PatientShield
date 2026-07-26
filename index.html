@@ -11,69 +11,66 @@
     <!-- Header -->
     <header class="bg-white border-b border-slate-200 py-4 px-6 flex justify-between items-center max-w-6xl mx-auto">
         <span class="text-xl font-bold text-blue-700">Patient<span class="text-slate-800">Shield</span></span>
-        <span class="text-sm font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Zero Upfront Costs • Performance-Based</span>
+        <span class="text-sm font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">Zero Upfront Costs • HIPAA Secure</span>
     </header>
 
     <!-- Main Content -->
     <main class="max-w-4xl mx-auto px-6 py-12">
-        <div class="text-center mb-12">
+        <div class="text-center mb-12" id="headerText">
             <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Fighting Inflated Hospital Bills <span class="text-blue-600">For You.</span></h1>
-            <p class="text-lg text-slate-600 max-w-2xl mx-auto">Over 80% of high-acuity and catastrophic hospital bills contain severe errors. We audit your records, challenge hospital billing departments, and only get paid if we successfully lower your balance.</p>
+            <p class="text-lg text-slate-600 max-w-2xl mx-auto">Over 80% of high-acuity and catastrophic hospital bills contain severe errors. We audit your records securely, challenge hospital billing departments, and only get paid if we successfully lower your balance.</p>
         </div>
 
         <!-- Intake Form Box -->
         <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
-            <h2 class="text-2xl font-bold mb-6 text-slate-800">Start Your Free Bill Review</h2>
+            <h2 id="formTitle" class="text-2xl font-bold mb-6 text-slate-800">Start Your Free Secure Bill Review</h2>
             
             <form id="auditForm" class="space-y-6">
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                        <input type="text" id="fullName" name="fullName" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                <!-- Initial Intake Fields -->
+                <div id="initialFields" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                            <input type="text" id="fullName" name="fullName" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                            <input type="email" id="email" name="email" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                        <input type="email" id="email" name="email" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                            <input type="tel" id="phone" name="phone" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Hospital / Facility Name</label>
+                            <input type="text" id="hospitalName" name="hospitalName" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                        </div>
                     </div>
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
-                        <input type="tel" id="phone" name="phone" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Hospital / Facility Name</label>
-                        <input type="text" id="hospitalName" name="hospitalName" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
-                    </div>
-                </div>
+                    <hr class="border-slate-200 my-6">
 
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Approximate Total Bill Amount ($)</label>
-                    <input type="text" id="billAmount" name="billAmount" placeholder="e.g., $250,000" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
-                </div>
-
-                <hr class="border-slate-200 my-6">
-
-                <!-- File Uploads -->
-                <div class="space-y-4">
-                    <h3 class="text-lg font-semibold text-slate-800">Required Document Uploads</h3>
-                    <p class="text-sm text-slate-500">Please upload your itemized bills, EOBs, and medical records to kick off the automated forensic audit.</p>
-                    
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Itemized Hospital Bill (UB-04 / CMS-1450) <span class="text-red-500">*Required</span></label>
-                        <input type="file" id="itemizedBill" name="itemizedBill" required class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <input type="file" id="itemizedBill" name="itemizedBill" accept="image/*,application/pdf" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     </div>
+                </div>
 
+                <!-- Supplemental / Missing Documents Section -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-slate-800" id="docsHeader">Optional Supporting Documents</h3>
+                    
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Explanation of Benefits (EOB) / Insurance Statement</label>
-                        <input type="file" id="eobDocument" name="eobDocument" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                        <input type="file" id="eobDocument" name="eobDocument" accept="image/*,application/pdf" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Medical Records / MAR / Notes (If available)</label>
-                        <input type="file" id="medicalRecords" name="medicalRecords" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Medical Records / MAR / Notes</label>
+                        <input type="file" id="medicalRecords" name="medicalRecords" accept="image/*,application/pdf" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
                     </div>
                 </div>
 
@@ -83,46 +80,87 @@
                 <div class="flex items-start space-x-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <input type="checkbox" id="hipaaConsent" name="hipaaConsent" required class="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
                     <label for="hipaaConsent" class="text-xs text-slate-600 leading-relaxed">
-                        <strong>HIPAA Authorization & Representation Agreement:</strong> By checking this box, I authorize The Patient Shield and its automated forensic auditors to act as my authorized representative to inspect, copy, and audit my medical and billing records for the purpose of bill negotiation. I acknowledge our zero-upfront cost contingency model (30% of verified net savings only upon successful reduction).
+                        <strong>HIPAA Authorization & Representation Agreement:</strong> By checking this box, I authorize The Patient Shield and its automated forensic auditors to act as my authorized representative to inspect, copy, and audit my medical and billing records for the purpose of bill negotiation under our zero-upfront cost contingency model (30% of verified net savings only upon successful reduction).
                     </label>
                 </div>
 
                 <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-lg shadow-blue-600/20">
-                    Submit For Free Forensic Audit
+                    Submit For Secure AI Forensic Audit
                 </button>
             </form>
 
             <!-- Success Message Box -->
             <div id="successMessage" class="hidden mt-6 p-6 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-center">
-                <h3 class="font-bold text-lg mb-2">Audit Pipeline Initiated Successfully!</h3>
-                <p class="text-sm">Thank you. Your intake has been securely processed, and our AI forensic review team has received your files.</p>
+                <h3 id="successTitle" class="font-bold text-lg mb-2">Secure Audit Pipeline Initiated!</h3>
+                <p id="successText" class="text-sm">Thank you. Your documents have been securely processed by our AI forensic scanner. Check your email for your preliminary estimate and secure portal link.</p>
             </div>
         </div>
     </main>
 
     <script>
+        // Check URL parameters for Secure Portal mode (?case=active&email=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const isPortalMode = urlParams.get('case') === 'active';
+        const portalEmail = urlParams.get('email');
+
+        if (isPortalMode && portalEmail) {
+            document.getElementById('formTitle').innerText = "Secure Missing Document Upload Portal";
+            document.getElementById('headerText').innerHTML = `
+                <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">Secure Document Upload Portal</h1>
+                <p class="text-md text-slate-600 max-w-xl mx-auto">Upload your remaining EOB or Medical Records for active case: <span class="font-semibold text-blue-700">${portalEmail}</span></p>
+            `;
+            document.getElementById('initialFields').style.display = 'none';
+            document.getElementById('itemizedBill').removeAttribute('required');
+            document.getElementById('fullName').value = "Returning Client";
+            document.getElementById('email').value = portalEmail;
+            document.getElementById('phone').value = "Provided in Initial Intake";
+            document.getElementById('hospitalName').value = "Active Case Hospital";
+            document.getElementById('submitBtn').innerText = "Securely Upload Missing Documents";
+        }
+
+        const convertFileToBase64 = (file) => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        };
+
         document.getElementById('auditForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
-            btn.innerText = "Processing Secure Audit...";
+            btn.innerText = "Encrypting & Processing Documents...";
             btn.disabled = true;
 
-            const itemizedInput = document.getElementById('itemizedBill').files[0];
-            const eobInput = document.getElementById('eobDocument').files[0];
-            const recordsInput = document.getElementById('medicalRecords').files[0];
-
-            const formData = {
-                fullName: document.getElementById('fullName').value,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value,
-                hospitalName: document.getElementById('hospitalName').value,
-                billAmount: document.getElementById('billAmount').value,
-                fileName: itemizedInput ? itemizedInput.name : 'Itemized Bill.pdf',
-                eobName: eobInput ? eobInput.name : 'Not Provided',
-                recordsName: recordsInput ? recordsInput.name : 'Not Provided'
-            };
-
             try {
+                const itemizedInput = document.getElementById('itemizedBill').files[0];
+                const eobInput = document.getElementById('eobDocument').files[0];
+                const recordsInput = document.getElementById('medicalRecords').files[0];
+
+                let itemizedBase64 = null;
+                if (itemizedInput) itemizedBase64 = await convertFileToBase64(itemizedInput);
+
+                let eobBase64 = null;
+                if (eobInput) eobBase64 = await convertFileToBase64(eobInput);
+
+                let recordsBase64 = null;
+                if (recordsInput) recordsBase64 = await convertFileToBase64(recordsInput);
+
+                const formData = {
+                    isPortalUpload: isPortalMode,
+                    fullName: document.getElementById('fullName').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value,
+                    hospitalName: document.getElementById('hospitalName').value,
+                    fileName: itemizedInput ? itemizedInput.name : 'Itemized Bill on File',
+                    fileData: itemizedBase64,
+                    eobName: eobInput ? eobInput.name : 'Not Provided',
+                    eobData: eobBase64,
+                    recordsName: recordsInput ? recordsInput.name : 'Not Provided',
+                    recordsData: recordsBase64
+                };
+
                 const response = await fetch('/api/submit-intake', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -136,15 +174,19 @@
 
                 if (response.ok) {
                     document.getElementById('auditForm').style.display = 'none';
+                    if (isPortalMode) {
+                        document.getElementById('successTitle').innerText = "Supplemental Documents Received Successfully!";
+                        document.getElementById('successText').innerText = "Your encrypted documents have been successfully routed to your active case vault. Our clinical team will complete your final dispute packet.";
+                    }
                     document.getElementById('successMessage').classList.remove('hidden');
                 } else {
                     alert(result.message || "Error processing submission.");
-                    btn.innerText = "Submit For Free Forensic Audit";
+                    btn.innerText = isPortalMode ? "Securely Upload Missing Documents" : "Submit For Secure AI Forensic Audit";
                     btn.disabled = false;
                 }
             } catch (err) {
-                alert("Network error. Please try again.");
-                btn.innerText = "Submit For Free Forensic Audit";
+                alert("Error reading files or network issue. Please try again.");
+                btn.innerText = isPortalMode ? "Securely Upload Missing Documents" : "Submit For Secure AI Forensic Audit";
                 btn.disabled = false;
             }
         });

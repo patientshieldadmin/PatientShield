@@ -29,39 +29,6 @@ export default async function handler(req, res) {
     let missingInfoRequests = [];
     let aiErrorLog = null;
 
-    const resendApiKey = process.env.RESEND_API_KEY;
-
-    // 1. Send Immediate "File Received & Audit Underway" Confirmation Email
-    if (resendApiKey && clientEmail) {
-      try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'The Patient Shield <audit@thepatientshield.com>',
-            to: [clientEmail],
-            subject: 'We Have Received Your Medical Bill - Audit Underway',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                <h2 style="color: #0f172a;">Your Medical Bill Has Been Received</h2>
-                <p>Hello ${actualPatientName},</p>
-                <p>We wanted to let you know that we have securely received your uploaded document (<strong>${fileName}</strong>) for <strong>${actualFacilityName}</strong>.</p>
-                <p>Our forensic audit engine is currently reviewing your statement. Once the analysis is complete and reviewed by our compliance team, you will receive your detailed audit findings and next steps.</p>
-                <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                  This communication is handled securely in compliance with HIPAA guidelines.
-                </p>
-              </div>
-            `
-          })
-        });
-      } catch (initialEmailErr) {
-        console.error('Initial Confirmation Email Error:', initialEmailErr);
-      }
-    }
-
     // Programmatically capture missing document requirements based on site uploads
     if (eobName === 'Not Provided') {
       missingInfoRequests.push('Matching Explanation of Benefits (EOB) from your insurance provider');
@@ -70,7 +37,7 @@ export default async function handler(req, res) {
       missingInfoRequests.push('Detailed medical records or clinical notes corresponding to the billing dates');
     }
 
-    // 2. Local fallback regex parsing for total amount
+    // 1. Local fallback regex parsing for total amount
     if (fileText) {
       const totalMatch = fileText.match(/(?:Total Balance|Total Charges|Total Amount|Total Due|Total)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})/i) || fileText.match(/\$([\d,]+\.\d{2})/);
       if (totalMatch && totalMatch[1]) {
@@ -80,7 +47,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. OpenAI Universal Forensic Audit Pipeline with Built-In Self-Audit & Self-Correction Loop
+    // 2. OpenAI Universal Forensic Audit Pipeline with Built-In Self-Audit & Self-Correction Loop
     if (!isPortalUpload && process.env.OPENAI_API_KEY && fileText.trim().length > 0) {
       try {
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -182,6 +149,7 @@ export default async function handler(req, res) {
     const leadId = Date.now().toString();
     const dashboardUrl = `[https://thepatientshield.com/dashboard?id=$](https://thepatientshield.com/dashboard?id=$){leadId}`;
 
+    // Build missing items HTML list for the email
     let missingHtml = '';
     if (missingInfoRequests.length > 0) {
       missingHtml = `
@@ -192,6 +160,48 @@ export default async function handler(req, res) {
           </ul>
         </div>
       `;
+    }
+
+    const resendApiKey = process.env.RESEND_API_KEY;
+
+    // 3. Send Immediate "File Received & Missing Info Request" Email to Client
+    if (resendApiKey && clientEmail) {
+      try {
+        await fetch('[https://api.resend.com/emails](https://api.resend.com/emails)', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'The Patient Shield <audit@thepatientshield.com>',
+            to: [clientEmail],
+            subject: 'We Have Received Your Medical Bill - Action Required for Missing Documents',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                <h2 style="color: #0f172a;">Your Medical Bill Has Been Received</h2>
+                <p>Hello ${actualPatientName},</p>
+                <p>We have securely received your uploaded statement (<strong>${fileName}</strong>) for <strong>${actualFacilityName}</strong>.</p>
+                <p>Our preliminary audit is underway. To ensure a fully accurate, compliant cross-check of your billing statement, we noticed that certain supporting documents were not provided:</p>
+                
+                ${missingHtml}
+
+                <p>Please upload these missing documents through your secure portal link below so our team and AI can complete a thorough audit:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="${dashboardUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
+                </div>
+
+                <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                  This communication is handled securely in compliance with HIPAA guidelines.
+                </p>
+              </div>
+            `
+          })
+        });
+      } catch (initialEmailErr) {
+        console.error('Confirmation Email Error:', initialEmailErr);
+      }
     }
 
     const emailSubject = `Preliminary Medical Bill Audit Update: Potential Savings Found (${estimatedSavingsValue})`;
@@ -208,7 +218,7 @@ export default async function handler(req, res) {
 
         ${missingHtml}
 
-        <p>To view your preliminary findings, upload any missing documents (such as EOBs), and securely finalize your review, please click the secure link below:</p>
+        <p>To view your preliminary findings, upload any missing documents, and securely finalize your review, please click the secure link below:</p>
         
         <div style="text-align: center; margin: 30px 0;">
           <a href="${dashboardUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
@@ -220,7 +230,7 @@ export default async function handler(req, res) {
       </div>
     `;
 
-    // 4. Save Lead to Upstash Redis Database with 'pending_admin_approval' status (Holding results/findings email for admin review)
+    // 4. Save Lead to Upstash Redis Database with 'pending_admin_approval' status
     try {
       const leadData = {
         id: leadId,
@@ -267,7 +277,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ 
       status: 'success', 
-      message: 'File received email sent. Forensic audit completed and lead placed in admin review queue.',
+      message: 'File received & missing info email sent. Forensic audit completed and lead placed in admin review queue.',
       leadId: leadId
     });
   } catch (error) {

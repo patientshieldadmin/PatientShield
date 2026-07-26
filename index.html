@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -107,36 +107,52 @@
             btn.innerText = "Processing Secure Audit...";
             btn.disabled = true;
 
-            const formData = {
-                fullName: document.getElementById('fullName').value,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value,
-                hospitalName: document.getElementById('hospitalName').value,
-                billAmount: document.getElementById('billAmount').value,
-                itemizedBill: document.getElementById('itemizedBill').files.length > 0
-            };
+            const fileInput = document.getElementById('itemizedBill');
+            const file = fileInput.files[0];
 
-            try {
-                const response = await fetch('/api/submit-intake', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
-                const result = await response.json();
-                
-                if (response.ok) {
-                    document.getElementById('auditForm').style.display = 'none';
-                    document.getElementById('successMessage').classList.remove('hidden');
-                } else {
-                    alert(result.message || "Error processing submission.");
+            if (!file) {
+                alert('Please upload an itemized hospital bill.');
+                btn.innerText = "Submit For Free Forensic Audit";
+                btn.disabled = false;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const formData = {
+                    fullName: document.getElementById('fullName').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value,
+                    hospitalName: document.getElementById('hospitalName').value,
+                    billAmount: document.getElementById('billAmount').value,
+                    fileName: file.name,
+                    fileData: event.target.result
+                };
+
+                try {
+                    const response = await fetch('/api/submit-intake', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        document.getElementById('auditForm').style.display = 'none';
+                        document.getElementById('successMessage').classList.remove('hidden');
+                    } else {
+                        alert(result.message || "Error processing submission.");
+                        btn.innerText = "Submit For Free Forensic Audit";
+                        btn.disabled = false;
+                    }
+                } catch (err) {
+                    alert("Network error during submission.");
                     btn.innerText = "Submit For Free Forensic Audit";
                     btn.disabled = false;
                 }
-            } catch (err) {
-                alert("Network error during submission.");
-                btn.innerText = "Submit For Free Forensic Audit";
-                btn.disabled = false;
-            }
+            };
+
+            reader.readAsDataURL(file);
         });
     </script>
 </body>

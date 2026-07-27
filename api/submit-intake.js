@@ -37,13 +37,11 @@ export default async function handler(req, res) {
       missingInfoRequests.push('Detailed medical records or clinical notes corresponding to the billing dates');
     }
 
-    // 1. Local fallback regex parsing for total amount
+    // 1. Local fallback regex parsing for total amount (Without arbitrary percentage savings)
     if (fileText) {
       const totalMatch = fileText.match(/(?:Total Balance|Total Charges|Total Amount|Total Due|Total)\s*[:#]?\s*\$?\s*([\d,]+\.\d{2})/i) || fileText.match(/\$([\d,]+\.\d{2})/);
       if (totalMatch && totalMatch[1]) {
         extractedBillAmount = `$${totalMatch[1]}`;
-        const num = parseFloat(totalMatch[1].replace(/,/g, ''));
-        estimatedSavingsValue = `$${(num * 0.30).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       }
     }
 
@@ -149,7 +147,7 @@ export default async function handler(req, res) {
     }
 
     const leadId = Date.now().toString();
-    const dashboardUrl = `[https://thepatientshield.com/dashboard?id=$](https://thepatientshield.com/dashboard?id=$){leadId}`;
+    const securePortalUrl = `[https://www.thepatientshield.com/portal.html?id=$](https://www.thepatientshield.com/portal.html?id=$){leadId}`;
 
     let missingHtml = '';
     if (missingInfoRequests.length > 0) {
@@ -190,7 +188,7 @@ export default async function handler(req, res) {
                 <p>Please upload these missing documents through your secure portal link below so our team and AI can complete a thorough audit:</p>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${dashboardUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
+                  <a href="${securePortalUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
                 </div>
 
                 <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
@@ -222,7 +220,7 @@ export default async function handler(req, res) {
         <p>To view your preliminary findings, upload any missing documents, and securely finalize your review, please click the secure link below:</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${dashboardUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
+          <a href="${securePortalUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Access Secure Portal & Upload Missing Files</a>
         </div>
 
         <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">

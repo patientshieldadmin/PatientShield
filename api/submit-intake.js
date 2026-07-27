@@ -203,6 +203,35 @@ export default async function handler(req, res) {
       }
     }
 
+    // Send Notification Alert to Clinical Nurse Team
+    const adminEmail = process.env.ADMIN_EMAIL || 'nurse@thepatientshield.com';
+    if (resendApiKey) {
+      try {
+        await fetch('[https://api.resend.com/emails](https://api.resend.com/emails)', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + resendApiKey
+          },
+          body: JSON.stringify({
+            from: 'PatientShield Alerts <alerts@thepatientshield.com>',
+            to: [adminEmail],
+            subject: `🚨 New Bill Audit: ${actualFacilityName} (${extractedBillAmount})`,
+            html: `
+              <h2>New Catastrophic Bill Intake Ready for Review</h2>
+              <p><strong>Patient/Account:</strong> ${actualPatientName}</p>
+              <p><strong>Hospital Facility:</strong> ${actualFacilityName}</p>
+              <p><strong>Gross Bill Total:</strong> ${extractedBillAmount}</p>
+              <p><strong>Estimated Savings:</strong> ${estimatedSavingsValue}</p>
+              <p><a href="[https://www.thepatientshield.com/admin.html](https://www.thepatientshield.com/admin.html)" target="_blank">Log into Admin Dashboard to Review Full Audit & Approve Email</a></p>
+            `
+          })
+        });
+      } catch (adminEmailErr) {
+        console.error('Admin Alert Email Error:', adminEmailErr);
+      }
+    }
+
     const emailSubject = `Preliminary Medical Bill Audit Update: Potential Savings Found (${estimatedSavingsValue})`;
     const emailBodyHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PatientShield | Secure Admin Dashboard</title>
-    <script src="[https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4](https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4)"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans antialiased">
 
@@ -15,17 +15,17 @@
         
         <form id="loginForm" class="space-y-4">
             <input type="password" id="adminPassword" placeholder="Admin Password" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none">
-            <button type="submit" id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition">Login to Dashboard</button>
+            <button type="submit" id="loginBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition cursor-pointer">Login to Dashboard</button>
         </form>
 
         <div class="mt-4 text-center">
-            <button onclick="forgotPassword()" class="text-xs text-blue-600 hover:underline font-semibold">Forgot Password? Email it to Admin Inbox</button>
+            <button type="button" onclick="forgotPassword()" class="text-xs text-blue-600 hover:underline font-semibold cursor-pointer">Forgot Password? Email it to Admin Inbox</button>
         </div>
         <p id="msg" class="text-xs text-center mt-3 text-slate-500"></p>
     </div>
 
-    <!-- Dashboard Container -->
-    <div id="dashboard" class="hidden max-w-7xl mx-auto px-6 py-10">
+    <!-- Dashboard Container (Guaranteed hidden by default via inline style) -->
+    <div id="dashboard" style="display: none;" class="max-w-7xl mx-auto px-6 py-10">
         <div class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-extrabold text-slate-900">PatientShield Admin Dashboard</h1>
@@ -59,7 +59,9 @@
 
                 if (data.status === 'success') {
                     document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('dashboard').classList.remove('hidden');
+                    const dash = document.getElementById('dashboard');
+                    dash.style.display = 'block';
+                    dash.classList.remove('hidden');
                     loadLeads();
                 } else {
                     msg.textContent = data.message || 'Incorrect password.';

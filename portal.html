@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PatientShield | Secure Client Portal</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased">
+    <div class="max-w-2xl mx-auto px-6 py-16">
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6">
+            <div class="text-center border-b pb-4">
+                <h1 class="text-2xl font-extrabold text-slate-900">Secure Document Upload Portal</h1>
+                <p class="text-slate-500 text-sm mt-1">Provide your missing documents to complete your forensic bill audit.</p>
+            </div>
+
+            <div id="loadingState" class="text-center py-8 text-slate-500">Loading your secure audit profile...</div>
+
+            <form id="portalForm" class="space-y-6 hidden">
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-sm space-y-1">
+                    <p><strong>Hospital Facility:</strong> <span id="facilityLabel">-</span></p>
+                    <p><strong>Gross Bill Total:</strong> <span id="totalLabel">-</span></p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1">Upload Missing Explanation of Benefits (EOB) or Medical Records</label>
+                        <input type="file" id="portalFile" accept="image/*,.pdf" required class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                </div>
+
+                <button type="submit" id="portalSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-md cursor-pointer">Securely Upload & Update Audit</button>
+            </form>
+
+            <p id="portalStatus" class="text-center text-sm font-semibold mt-4"></p>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const leadId = urlParams.get('id');
+
+        async function fetchLeadDetails() {
+            if (!leadId) {
+                document.getElementById('loadingState').textContent = 'Invalid or missing secure portal link.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/get-leads');
+                const data = await res.json();
+                if (data.status === 'success' && data.leads) {
+                    const lead = data.leads.find(l => l.id === leadId);
+                    if (lead) {
+                        document.getElementById('facilityLabel').textContent = lead.hospitalName;
+                        document.getElementById('totalLabel').textContent = lead.extractedBillAmount || '$0.00';
+                        document.getElementById('loadingState').classList.add('hidden');
+                        document.getElementById('portalForm').classList.remove('hidden');
+                    } else {
+                        document.getElementById('loadingState').textContent = 'Audit profile not found.';
+                    }
+                }
+            } catch (err) {
+                document.getElementById('loadingState').textContent = 'Error loading secure audit profile.';
+            }
+        }
+
+        async function convertFileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        document.getElementById('portalForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('portalSubmitBtn');
+            const status = document.getElementById('portalStatus');
+            const fileInput = document.getElementById('portalFile');
+
+            if (!fileInput.files[0]) return;
+
+            btn.textContent = 'Encrypting & Uploading...';
+            btn.disabled = true;
+            status.textContent = 'Transmitting documents securely to compliance vault...';
+            status.className = 'text-center text-sm font-semibold text-blue-600 mt-4';
+
+            try {
+                const file = fileInput.files[0];
+                const fileData = await convertFileToBase64(file);
+
+                const res = await fetch('/api/submit-intake', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        isPortalUpload: true,
+                        leadId: leadId,
+                        fileName: file.name,
+                        fileData: fileData,
+                        eobName: file.name
+                    })
+                });
+
+                const result = await res.json();
+                if (res.ok && result.status === 'success') {
+                    status.textContent = 'Success! Your documents have been securely uploaded and routed to your audit file.';
+                    status.className = 'text-center text-sm font-semibold text-green-600 mt-4';
+                    document.getElementById('portalForm').reset();
+                } else {
+                    status.textContent = result.message || 'Upload failed. Please try again.';
+                    status.className = 'text-center text-sm font-semibold text-red-600 mt-4';
+                }
+            } catch (err) {
+                status.textContent = 'Connection error during upload.';
+                status.className = 'text-center text-sm font-semibold text-red-600 mt-4';
+            } finally {
+                btn.textContent = 'Securely Upload & Update Audit';
+                btn.disabled = false;
+            }
+        });
+
+        fetchLeadDetails();
+    </script>
+</body>
+</html>

@@ -1,11 +1,11 @@
 import {
   normalizeUsername, getUser, saveUser, deleteUser, hashPassword,
   newTotpSecret, totpVerify, makeRecoveryCodes, sha256Hex,
-  normalizeRecoveryCode, timingSafeStringEqual
+  normalizeRecoveryCode, verifySession
 } from './_admin-auth.js';
 
-// POST /api/admin-enroll — gated by the CURRENT legacy admin password
-// (body.currentPassword). Actions:
+// POST /api/admin-enroll — gated by a signed-in admin session
+// (Authorization: Bearer <session token> from /api/admin-login). Actions:
 //   start   { username, newPassword } -> { totpSecret, otpauthUrl } (shown once)
 //   confirm { username, code }        -> activates the account, returns 8
 //                                        one-time recovery codes (shown once)
@@ -16,13 +16,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ status: 'error', message: 'Method not allowed' });
   }
   try {
-    const adminPass = process.env.ADMIN_PASSWORD;
-    if (!adminPass) {
-      return res.status(500).json({ status: 'error', message: 'Admin password is not configured.' });
-    }
-    const { action, currentPassword, username: rawUsername, newPassword, code } = req.body || {};
-    if (!currentPassword || !timingSafeStringEqual(currentPassword, adminPass)) {
-      return res.status(401).json({ status: 'error', message: 'Incorrect admin password.' });
+    const { action, username: rawUsername, newPassword, code } = req.body || {};
+    const authHeader = (req.headers && req.headers.authorization) || '';
+    const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+    const session = provided ? await verifySession(provided) : null;
+    if (!session) {
+      return res.status(401).json({ status: 'error', message: 'Sign in to the admin dashboard first, then manage accounts here.' });
     }
     const username = normalizeUsername(rawUsername);
     if (!/^[a-z0-9@._+\-]{3,64}$/.test(username)) {

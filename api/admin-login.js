@@ -1,14 +1,14 @@
 import {
   normalizeUsername, getUser, saveUser, verifyPassword, totpVerify,
   sha256Hex, normalizeRecoveryCode, signSession,
-  getFails, recordFail, clearFails, isLocked, timingSafeStringEqual
+  getFails, recordFail, clearFails, isLocked
 } from './_admin-auth.js';
 
 // POST /api/admin-login
 // Named account:  { username, password } -> { codeRequired: true } -> { username, password, code } -> { status:'success', token }
 //   The code is the 6-digit authenticator code, or a one-time recovery code.
-// Legacy (transition): { password } -> { status:'success', token } where the
-//   token is the legacy password itself, which checkAdminAuth still accepts.
+// Cutover 2026-11-14: named accounts only — the legacy shared-password
+//   login was removed after the owner's enrollment verified live.
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   if (req.method !== 'POST') {
@@ -19,15 +19,7 @@ export default async function handler(req, res) {
     const username = normalizeUsername(rawUsername);
 
     if (!username) {
-      // Legacy shared-password path (removed at cutover).
-      const adminPass = process.env.ADMIN_PASSWORD;
-      if (!adminPass) {
-        return res.status(500).json({ status: 'error', message: 'Admin password is not configured.' });
-      }
-      if (!password || !timingSafeStringEqual(password, adminPass)) {
-        return res.status(401).json({ status: 'error', message: 'Incorrect admin password.' });
-      }
-      return res.status(200).json({ status: 'success', token: password });
+      return res.status(400).json({ status: 'error', message: 'Username is required.' });
     }
 
     if (!password) {

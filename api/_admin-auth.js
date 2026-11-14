@@ -5,8 +5,8 @@ import crypto from 'node:crypto';
 //   admin:user:<username>      -> JSON { username, passwordHash, totpSecret, active, recoveryHashes, createdAt }
 //   admin:session_secret       -> HMAC secret for session tokens (auto-created)
 //   admin:loginfails:<username>-> JSON { pw, code, lockedUntil }
-// Cutover done 2026-11-14: the legacy shared ADMIN_PASSWORD is accepted
-// nowhere — named accounts + TOTP session tokens only.
+// Transition rule: the legacy shared ADMIN_PASSWORD is still accepted
+// (as a login and as a Bearer token) until the cutover pass removes it.
 
 function redisConfig() {
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.REDIS_URL;
@@ -200,5 +200,7 @@ export async function checkAdminAuth(req) {
   if (!provided) return { ok: false };
   const session = await verifySession(provided);
   if (session) return { ok: true, via: 'session', user: session.u };
+  const legacy = process.env.ADMIN_PASSWORD;
+  if (legacy && timingSafeStringEqual(provided, legacy)) return { ok: true, via: 'legacy' };
   return { ok: false };
 }

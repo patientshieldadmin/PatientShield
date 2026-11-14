@@ -4,10 +4,9 @@ export default async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
 
   const cronSecret = process.env.CRON_SECRET;
-  const adminPass = process.env.ADMIN_PASSWORD;
   const authHeader = req.headers.authorization || '';
   const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-  const authorized = (cronSecret && provided === cronSecret) || (adminPass && provided === adminPass);
+  const authorized = (cronSecret && provided === cronSecret);
   if (!authorized) {
     return res.status(401).json({ status: 'error', message: 'Unauthorized.' });
   }
